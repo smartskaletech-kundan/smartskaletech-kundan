@@ -622,7 +622,7 @@ function Dashboard({
               ))}
               {recentOrders.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="text-center py-8 text-gray-600">
+                  <td colSpan={6} className="text-center py-8 text-gray-700">
                     No orders yet
                   </td>
                 </tr>
@@ -1109,7 +1109,7 @@ function OrderManagement({
               ))}
             {activeOrders.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center py-8 text-gray-600">
+                <td colSpan={7} className="text-center py-8 text-gray-700">
                   No active orders
                 </td>
               </tr>
@@ -1264,7 +1264,7 @@ function KitchenDisplay({
     <div>
       <h2 className="text-xl font-bold mb-4">Kitchen Display System</h2>
       {active.length === 0 && (
-        <p className="text-gray-600 text-center py-12">
+        <p className="text-gray-700 text-center py-12">
           No active kitchen orders 🍳
         </p>
       )}
@@ -1941,7 +1941,7 @@ function Billing({
                       }}
                     >
                       <span className="font-medium">{s.name}</span>
-                      <span className="text-gray-500 text-xs">
+                      <span className="text-gray-700 text-xs">
                         {s.mobile} · {s.source}
                       </span>
                     </button>
@@ -1999,7 +1999,7 @@ function Billing({
             {menuItemSearch && (
               <div className="grid grid-cols-2 gap-2 mt-2 max-h-48 overflow-y-auto">
                 {filteredMenuItems.length === 0 && (
-                  <p className="text-xs text-gray-400 col-span-2">
+                  <p className="text-xs text-gray-600 col-span-2">
                     No items found
                   </p>
                 )}
@@ -4262,7 +4262,7 @@ function RedeemPoints({
       </button>
       <button
         type="button"
-        className="text-xs text-gray-500"
+        className="text-gray-800 font-bold text-lg hover:text-red-600 leading-none px-2"
         onClick={() => setShow(false)}
       >
         ✕
@@ -6306,7 +6306,7 @@ function RestaurantLoginScreen({ onLogin }: { onLogin: () => void }) {
         >
           Restaurant POS
         </h2>
-        <p style={{ color: "#64748b", marginBottom: 28, fontSize: "0.85rem" }}>
+        <p style={{ color: "#94a3b8", marginBottom: 28, fontSize: "0.85rem" }}>
           Hotel KDM Palace — Login with your owner / staff credentials
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -6369,7 +6369,7 @@ function RestaurantLoginScreen({ onLogin }: { onLogin: () => void }) {
           <a
             href="/"
             style={{
-              color: "#555",
+              color: "#94a3b8",
               fontSize: "0.8rem",
               textDecoration: "none",
               marginTop: 4,

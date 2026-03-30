@@ -25,6 +25,10 @@ interface BookingModalProps {
   defaultRoomType?: string;
 }
 
+const inputCls =
+  "bg-white text-slate-900 placeholder:text-slate-400 border-slate-300 focus:border-amber-500";
+const selectTriggerCls = "bg-white text-slate-900 border-slate-300";
+
 export default function BookingModal({
   open,
   onOpenChange,
@@ -104,15 +108,15 @@ export default function BookingModal({
           <DialogTitle className="font-serif text-2xl gold-text">
             Book Your Stay
           </DialogTitle>
-          <p className="text-sm text-muted-foreground">
-            Fill in your details and we'll confirm your reservation
+          <p className="text-sm text-slate-300">
+            Fill in your details and we&apos;ll confirm your reservation
           </p>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5 col-span-2">
-              <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+              <Label className="text-xs uppercase tracking-widest text-slate-300">
                 Full Name *
               </Label>
               <Input
@@ -120,11 +124,12 @@ export default function BookingModal({
                 onChange={(e) => set("name", e.target.value)}
                 placeholder="Your name"
                 required
+                className={inputCls}
                 data-ocid="booking.name.input"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+              <Label className="text-xs uppercase tracking-widest text-slate-300">
                 Email *
               </Label>
               <Input
@@ -133,11 +138,12 @@ export default function BookingModal({
                 onChange={(e) => set("email", e.target.value)}
                 placeholder="email@example.com"
                 required
+                className={inputCls}
                 data-ocid="booking.email.input"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+              <Label className="text-xs uppercase tracking-widest text-slate-300">
                 Phone *
               </Label>
               <Input
@@ -145,11 +151,12 @@ export default function BookingModal({
                 onChange={(e) => set("phone", e.target.value)}
                 placeholder="+91 XXXXX XXXXX"
                 required
+                className={inputCls}
                 data-ocid="booking.phone.input"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+              <Label className="text-xs uppercase tracking-widest text-slate-300">
                 Check-in *
               </Label>
               <Input
@@ -157,11 +164,12 @@ export default function BookingModal({
                 value={form.checkIn}
                 onChange={(e) => set("checkIn", e.target.value)}
                 required
+                className={inputCls}
                 data-ocid="booking.checkin.input"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+              <Label className="text-xs uppercase tracking-widest text-slate-300">
                 Check-out *
               </Label>
               <Input
@@ -169,18 +177,22 @@ export default function BookingModal({
                 value={form.checkOut}
                 onChange={(e) => set("checkOut", e.target.value)}
                 required
+                className={inputCls}
                 data-ocid="booking.checkout.input"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+              <Label className="text-xs uppercase tracking-widest text-slate-300">
                 Room Type
               </Label>
               <Select
                 value={form.roomType}
                 onValueChange={(v) => set("roomType", v)}
               >
-                <SelectTrigger data-ocid="booking.room_type.select">
+                <SelectTrigger
+                  className={selectTriggerCls}
+                  data-ocid="booking.room_type.select"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -193,14 +205,17 @@ export default function BookingModal({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+              <Label className="text-xs uppercase tracking-widest text-slate-300">
                 Guests
               </Label>
               <Select
                 value={form.guests}
                 onValueChange={(v) => set("guests", v)}
               >
-                <SelectTrigger data-ocid="booking.guests.select">
+                <SelectTrigger
+                  className={selectTriggerCls}
+                  data-ocid="booking.guests.select"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -213,7 +228,7 @@ export default function BookingModal({
               </Select>
             </div>
             <div className="space-y-1.5 col-span-2">
-              <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+              <Label className="text-xs uppercase tracking-widest text-slate-300">
                 Special Requests
               </Label>
               <Textarea
@@ -221,6 +236,7 @@ export default function BookingModal({
                 onChange={(e) => set("message", e.target.value)}
                 placeholder="Any special requests or requirements..."
                 rows={3}
+                className={inputCls}
                 data-ocid="booking.message.textarea"
               />
             </div>

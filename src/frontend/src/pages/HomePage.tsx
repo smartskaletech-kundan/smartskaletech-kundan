@@ -209,6 +209,16 @@ const galleryImages = [
   },
 ];
 
+function getImgMgrImages(
+  key: string,
+): Array<{ id: string; url: string; name?: string; caption?: string }> {
+  try {
+    return JSON.parse(localStorage.getItem(key) || "[]");
+  } catch {
+    return [];
+  }
+}
+
 function StarRating({ count }: { count: number }) {
   return (
     <div className="flex gap-0.5">
@@ -272,30 +282,53 @@ export default function HomePage() {
       return [];
     }
   })();
-  const _adminRoomImages: Array<{
-    id: string;
-    url: string;
-    name: string;
-    caption: string;
-  }> = (() => {
-    try {
-      return JSON.parse(localStorage.getItem("kdm_room_images") || "[]");
-    } catch {
-      return [];
-    }
-  })();
-  const _adminHallImages: Array<{
-    id: string;
-    url: string;
-    name: string;
-    caption: string;
-  }> = (() => {
-    try {
-      return JSON.parse(localStorage.getItem("kdm_hall_images") || "[]");
-    } catch {
-      return [];
-    }
-  })();
+  // Image Manager category images map: room id -> first uploaded image url (or null)
+  const categoryImageMap: Record<string, string | null> = {
+    standard: getImgMgrImages("kdm_img_cat_Standard")[0]?.url ?? null,
+    "single-executive":
+      getImgMgrImages("kdm_img_cat_Single Executive")[0]?.url ?? null,
+    executive: getImgMgrImages("kdm_img_cat_Executive")[0]?.url ?? null,
+    deluxe: getImgMgrImages("kdm_img_cat_Deluxe")[0]?.url ?? null,
+    amrapali: getImgMgrImages("kdm_img_cat_Amrapali")[0]?.url ?? null,
+    rajgirih: getImgMgrImages("kdm_img_cat_Rajgirih")[0]?.url ?? null,
+  };
+
+  // Dynamic gallery: aggregate all Image Manager images across all tabs
+  const allManagerImages: Array<{ src: string; alt: string; span?: string }> = [
+    ...getImgMgrImages("kdm_banner_images").map((img, i) => ({
+      src: img.url,
+      alt: img.name || `Banner ${i + 1}`,
+      span: i === 0 ? "col-span-2" : undefined,
+    })),
+    ...[
+      "Executive",
+      "Deluxe",
+      "Single Executive",
+      "Standard",
+      "Rajgirih",
+      "Amrapali",
+    ].flatMap((cat) =>
+      getImgMgrImages(`kdm_img_cat_${cat}`).map((img) => ({
+        src: img.url,
+        alt: img.name || cat,
+      })),
+    ),
+    ...getImgMgrImages("kdm_img_restaurant").map((img) => ({
+      src: img.url,
+      alt: img.name || "Restaurant",
+      span: "col-span-2" as string | undefined,
+    })),
+    ...["Vaishali Hall", "Pataliputra Hall", "Rajgriha Hall"].flatMap((hall) =>
+      getImgMgrImages(`kdm_img_banquet_${hall}`).map((img) => ({
+        src: img.url,
+        alt: img.name || hall,
+      })),
+    ),
+  ];
+
+  // Use admin images if any exist, otherwise fall back to hardcoded gallery
+  const displayGalleryImages =
+    allManagerImages.length > 0 ? allManagerImages : galleryImages;
   const heroBg =
     adminBannerImages.length > 0
       ? adminBannerImages[0].url
@@ -406,7 +439,7 @@ export default function HomePage() {
             <div className="col-span-1 space-y-1">
               <label
                 htmlFor="hero-checkin"
-                className="text-xs uppercase tracking-widest text-muted-foreground"
+                className="text-xs uppercase tracking-widest text-slate-700 font-semibold"
               >
                 Check In
               </label>
@@ -423,7 +456,7 @@ export default function HomePage() {
             <div className="col-span-1 space-y-1">
               <label
                 htmlFor="hero-checkout"
-                className="text-xs uppercase tracking-widest text-muted-foreground"
+                className="text-xs uppercase tracking-widest text-slate-700 font-semibold"
               >
                 Check Out
               </label>
@@ -438,7 +471,7 @@ export default function HomePage() {
               />
             </div>
             <div className="col-span-1 space-y-1">
-              <p className="text-xs uppercase tracking-widest text-muted-foreground">
+              <p className="text-xs uppercase tracking-widest text-slate-700 font-semibold">
                 Guests
               </p>
               <Select
@@ -458,7 +491,7 @@ export default function HomePage() {
               </Select>
             </div>
             <div className="col-span-1 space-y-1">
-              <p className="text-xs uppercase tracking-widest text-muted-foreground">
+              <p className="text-xs uppercase tracking-widest text-slate-700 font-semibold">
                 Room Type
               </p>
               <Select
@@ -528,7 +561,7 @@ export default function HomePage() {
               Welcome to <span className="gold-text">KDM Palace</span>
             </h2>
             <div className="gold-divider" />
-            <p className="mt-6 text-muted-foreground text-lg leading-relaxed max-w-3xl mx-auto">
+            <p className="mt-6 text-slate-600 text-lg leading-relaxed max-w-3xl mx-auto">
               Nestled in the vibrant heart of Begusarai, Bihar, Hotel KDM Palace
               stands as the region's premier luxury destination. Since our
               establishment, we have been dedicated to delivering an exceptional
@@ -561,7 +594,7 @@ export default function HomePage() {
                 <div className="font-serif text-3xl font-bold gold-text">
                   {item.stat}
                 </div>
-                <div className="text-sm text-muted-foreground mt-1 tracking-wide uppercase">
+                <div className="text-sm text-slate-600 mt-1 tracking-wide uppercase">
                   {item.label}
                 </div>
               </motion.div>
@@ -600,7 +633,7 @@ export default function HomePage() {
               >
                 <div className="relative overflow-hidden h-56">
                   <img
-                    src={room.image}
+                    src={categoryImageMap[room.id] ?? room.image}
                     alt={room.name}
                     className="w-full h-full object-cover transition-transform duration-700 hover:scale-110"
                   />
@@ -654,14 +687,14 @@ export default function HomePage() {
                   <h3 className="font-serif text-xl font-bold gold-text mb-2">
                     {room.name}
                   </h3>
-                  <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+                  <p className="text-sm text-slate-600 mb-4 leading-relaxed">
                     {room.desc}
                   </p>
                   <ul className="space-y-1.5 mb-6">
                     {room.amenities.map((a) => (
                       <li
                         key={a}
-                        className="flex items-center gap-2 text-xs text-muted-foreground"
+                        className="flex items-center gap-2 text-xs text-slate-600"
                       >
                         <span className="w-1 h-1 rounded-full bg-gold inline-block" />
                         {a}
@@ -710,7 +743,7 @@ export default function HomePage() {
               Fine Dining <span className="gold-text">Experience</span>
             </h2>
             <div className="gold-divider" />
-            <p className="mt-6 text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            <p className="mt-6 text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
               Indulge your palate at KDM Palace's signature restaurant. Our
               master chefs craft extraordinary dishes from the finest
               ingredients, offering a journey through the world's great cuisines
@@ -793,7 +826,7 @@ export default function HomePage() {
                 className="w-16 h-0.5 mb-6"
                 style={{ background: "oklch(0.73 0.115 74)" }}
               />
-              <p className="text-muted-foreground leading-relaxed mb-6">
+              <p className="text-slate-600 leading-relaxed mb-6">
                 Transform your special occasions into extraordinary memories.
                 Our grand banquet hall, with a capacity of up to 500 guests, is
                 the perfect venue for weddings, corporate conferences, social
@@ -811,7 +844,7 @@ export default function HomePage() {
                 ].map((feat) => (
                   <li
                     key={feat}
-                    className="flex items-center gap-3 text-sm text-muted-foreground"
+                    className="flex items-center gap-3 text-sm text-slate-600"
                   >
                     <span
                       className="w-1.5 h-1.5 rounded-full shrink-0"
@@ -862,7 +895,7 @@ export default function HomePage() {
                 }}
               >
                 <item.icon className="w-7 h-7 text-gold mb-3" />
-                <span className="text-xs text-muted-foreground font-medium">
+                <span className="text-xs text-slate-600 font-medium">
                   {item.label}
                 </span>
               </motion.div>
@@ -885,7 +918,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {galleryImages.map((img, i) => (
+            {displayGalleryImages.map((img, i) => (
               <motion.div
                 key={`${img.alt}-${i}`}
                 initial={{ opacity: 0 }}
@@ -928,7 +961,7 @@ export default function HomePage() {
           />
           <button
             type="button"
-            className="absolute top-4 right-6 text-4xl text-gold hover:text-foreground"
+            className="absolute top-4 right-6 text-4xl text-white font-bold hover:text-yellow-300 leading-none"
             onClick={() => setLightboxImg(null)}
             data-ocid="gallery.lightbox.close_button"
           >
@@ -965,7 +998,7 @@ export default function HomePage() {
                 data-ocid={`testimonials.item.${i + 1}`}
               >
                 <StarRating count={t.rating} />
-                <p className="mt-4 text-sm text-muted-foreground leading-relaxed italic">
+                <p className="mt-4 text-sm text-slate-600 leading-relaxed italic">
                   "{t.text}"
                 </p>
                 <div
@@ -973,7 +1006,7 @@ export default function HomePage() {
                   style={{ borderTop: "1px solid oklch(0.73 0.115 74 / 0.2)" }}
                 >
                   <p className="text-sm font-medium gold-text">{t.name}</p>
-                  <p className="text-xs text-muted-foreground">{t.location}</p>
+                  <p className="text-xs text-slate-600">{t.location}</p>
                 </div>
               </motion.div>
             ))}
@@ -1026,7 +1059,7 @@ export default function HomePage() {
                         <item.icon className="w-4 h-4 text-gold" />
                       </div>
                       <div>
-                        <p className="text-xs tracking-widest uppercase text-muted-foreground mb-0.5">
+                        <p className="text-xs tracking-widest uppercase text-slate-500 font-semibold mb-0.5">
                           {item.label}
                         </p>
                         <p className="text-sm text-foreground">{item.value}</p>
@@ -1046,12 +1079,8 @@ export default function HomePage() {
               >
                 <div className="text-center">
                   <MapPin className="w-8 h-8 text-gold mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    Hotel KDM Palace
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Begusarai, Bihar
-                  </p>
+                  <p className="text-sm text-slate-600">Hotel KDM Palace</p>
+                  <p className="text-xs text-slate-600">Begusarai, Bihar</p>
                 </div>
               </div>
             </div>
@@ -1070,7 +1099,7 @@ export default function HomePage() {
               <form onSubmit={handleContactSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+                    <Label className="text-xs uppercase tracking-widest text-slate-700 font-semibold">
                       Name *
                     </Label>
                     <Input
@@ -1084,7 +1113,7 @@ export default function HomePage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+                    <Label className="text-xs uppercase tracking-widest text-slate-700 font-semibold">
                       Phone
                     </Label>
                     <Input
@@ -1097,7 +1126,7 @@ export default function HomePage() {
                     />
                   </div>
                   <div className="space-y-1.5 col-span-2">
-                    <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+                    <Label className="text-xs uppercase tracking-widest text-slate-700 font-semibold">
                       Email *
                     </Label>
                     <Input
@@ -1112,7 +1141,7 @@ export default function HomePage() {
                     />
                   </div>
                   <div className="space-y-1.5 col-span-2">
-                    <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+                    <Label className="text-xs uppercase tracking-widest text-slate-700 font-semibold">
                       Subject
                     </Label>
                     <Input
@@ -1128,7 +1157,7 @@ export default function HomePage() {
                     />
                   </div>
                   <div className="space-y-1.5 col-span-2">
-                    <Label className="text-xs uppercase tracking-widest text-muted-foreground">
+                    <Label className="text-xs uppercase tracking-widest text-slate-700 font-semibold">
                       Message *
                     </Label>
                     <Textarea
@@ -1179,10 +1208,10 @@ export default function HomePage() {
               <h3 className="font-serif text-2xl font-bold gold-text mb-2">
                 HOTEL KDM PALACE
               </h3>
-              <p className="text-xs tracking-[0.3em] uppercase text-muted-foreground mb-4">
+              <p className="text-xs tracking-[0.3em] uppercase text-slate-300 mb-4">
                 Begusarai, Bihar
               </p>
-              <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">
+              <p className="text-sm text-slate-300 leading-relaxed max-w-xs">
                 Luxury & Elegance in the Heart of Begusarai. Your home away from
                 home, crafted with care and attention to every detail.
               </p>
@@ -1224,7 +1253,7 @@ export default function HomePage() {
                   <li key={link}>
                     <a
                       href={`#${link.toLowerCase()}`}
-                      className="text-sm text-muted-foreground hover:text-gold transition-colors"
+                      className="text-sm text-slate-300 hover:text-gold transition-colors"
                     >
                       {link}
                     </a>
@@ -1240,19 +1269,19 @@ export default function HomePage() {
               <ul className="space-y-3">
                 <li className="flex items-start gap-2">
                   <MapPin size={14} className="text-gold shrink-0 mt-0.5" />
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-slate-300">
                     Near Main Road, Begusarai, Bihar - 851101
                   </span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Phone size={14} className="text-gold" />
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-slate-300">
                     +91 98765 43210
                   </span>
                 </li>
                 <li className="flex items-center gap-2">
                   <Mail size={14} className="text-gold" />
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-slate-300">
                     info@hotelkdmpalace.com
                   </span>
                 </li>
@@ -1261,7 +1290,7 @@ export default function HomePage() {
           </div>
 
           <div
-            className="mt-12 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted-foreground"
+            className="mt-12 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400"
             style={{ borderTop: "1px solid oklch(0.73 0.115 74 / 0.15)" }}
           >
             <span>
