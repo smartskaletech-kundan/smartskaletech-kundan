@@ -16,8 +16,8 @@ export default {
     },
     extend: {
       fontFamily: {
-        serif: ['Playfair Display', 'Georgia', 'serif'],
-        sans: ['DM Sans', 'system-ui', 'sans-serif'],
+        serif: ["Playfair Display", "Georgia", "serif"],
+        sans: ["Plus Jakarta Sans", "system-ui", "sans-serif"],
       },
       colors: {
         border: "oklch(var(--border))",
@@ -71,24 +71,33 @@ export default {
           ring: "oklch(var(--sidebar-ring))",
         },
         gold: {
-          DEFAULT: "oklch(0.73 0.115 74)",
-          light: "oklch(0.82 0.1 74)",
-          dark: "oklch(0.62 0.1 68)",
+          DEFAULT: "#f59e0b",
+          light: "#fbbf24",
+          dark: "#d97706",
         },
         navy: {
-          DEFAULT: "oklch(0.15 0.042 260)",
-          light: "oklch(0.18 0.055 260)",
-          medium: "oklch(0.22 0.06 260)",
+          900: "#0f172a",
+          800: "#1e293b",
+          700: "#334155",
+          DEFAULT: "#1e3a5f",
+        },
+        orange: {
+          DEFAULT: "#f97316",
+          dark: "#ea580c",
         },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        xl: "14px",
+        "2xl": "18px",
       },
       boxShadow: {
         xs: "0 1px 2px 0 rgba(0,0,0,0.05)",
-        gold: "0 0 20px oklch(0.73 0.115 74 / 0.3)",
+        card: "0 2px 12px rgba(0,0,0,0.08)",
+        stat: "0 4px 20px rgba(0,0,0,0.15)",
+        gold: "0 0 20px rgba(245,158,11,0.3)",
       },
       keyframes: {
         "accordion-down": {

@@ -20,7 +20,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useMultiOwnerAuth } from "@/hooks/useMultiOwnerAuth";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 function getOccupiedRooms(): {
@@ -555,30 +555,32 @@ function Dashboard({
           {
             label: "Today's Revenue",
             value: fmt(todayRevenue),
-            color: "border-t-green-500",
+            gradient: "linear-gradient(135deg, #065f46, #10b981)",
           },
           {
             label: "Active Orders",
             value: String(activeOrders.length),
-            color: "border-t-blue-500",
+            gradient: "linear-gradient(135deg, #1e40af, #3b82f6)",
           },
           {
             label: "Tables Occupied",
             value: `${occupied}/16`,
-            color: "border-t-red-500",
+            gradient: "linear-gradient(135deg, #991b1b, #ef4444)",
           },
           {
             label: "Avg Order Value",
             value: fmt(avgOrder),
-            color: "border-t-yellow-500",
+            gradient: "linear-gradient(135deg, #92400e, #f59e0b)",
           },
         ].map((c) => (
-          <Card key={c.label} className={`border-t-4 ${c.color}`}>
-            <CardContent className="pt-4">
-              <div className="text-2xl font-bold">{c.value}</div>
-              <div className="text-sm text-gray-700 mt-1">{c.label}</div>
-            </CardContent>
-          </Card>
+          <div
+            key={c.label}
+            style={{ background: c.gradient }}
+            className="rounded-xl p-4 text-white shadow-md"
+          >
+            <div className="text-2xl font-bold">{c.value}</div>
+            <div className="text-sm text-white/80 mt-1">{c.label}</div>
+          </div>
         ))}
       </div>
       <Card>
@@ -659,12 +661,24 @@ function TableManagement({
     }
   });
 
-  const statusBg = (s: TableStatus) =>
+  const statusStyle = (s: TableStatus): React.CSSProperties =>
     s === "free"
-      ? "bg-green-100 border-green-400"
+      ? {
+          background: "linear-gradient(135deg, #065f46, #10b981)",
+          color: "white",
+          borderColor: "#059669",
+        }
       : s === "occupied"
-        ? "bg-red-100 border-red-400"
-        : "bg-yellow-100 border-yellow-400";
+        ? {
+            background: "linear-gradient(135deg, #991b1b, #ef4444)",
+            color: "white",
+            borderColor: "#dc2626",
+          }
+        : {
+            background: "linear-gradient(135deg, #92400e, #f59e0b)",
+            color: "white",
+            borderColor: "#d97706",
+          };
   const statusDot = (s: TableStatus) =>
     s === "free"
       ? "bg-green-500"
@@ -719,7 +733,18 @@ function TableManagement({
 
   return (
     <div>
-      <h2 className="text-xl font-bold mb-4">Table Management</h2>
+      <div
+        className="rounded-xl px-5 py-3 mb-5 flex items-center gap-3 shadow-sm"
+        style={{
+          background: "linear-gradient(135deg, #1a2744 0%, #1e40af 100%)",
+        }}
+      >
+        <span className="text-2xl">⊟</span>
+        <div>
+          <h2 className="text-lg font-bold text-white">Table Management</h2>
+          <p className="text-xs text-blue-200">Manage tables and orders</p>
+        </div>
+      </div>
       <div className="flex gap-4 mb-4 text-sm">
         {(["free", "occupied", "reserved"] as TableStatus[]).map((s) => (
           <span key={s} className="flex items-center gap-1">
@@ -734,10 +759,11 @@ function TableManagement({
             key={t.id}
             type="button"
             onClick={() => setSel(t)}
-            className={`border-2 rounded-lg p-3 text-center cursor-pointer hover:shadow-md transition ${statusBg(t.status)}`}
+            className="border-2 rounded-lg p-3 text-center cursor-pointer hover:shadow-lg transition hover:scale-105"
+            style={statusStyle(t.status)}
           >
             <div className="font-bold text-lg">{t.id}</div>
-            <div className="text-xs text-gray-700">{t.seats} seats</div>
+            <div className="text-xs opacity-80">{t.seats} seats</div>
           </button>
         ))}
       </div>
@@ -1052,8 +1078,21 @@ function OrderManagement({
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Order Management</h2>
+      <div
+        className="rounded-xl px-5 py-3 mb-5 flex items-center gap-3 shadow-sm"
+        style={{
+          background: "linear-gradient(135deg, #1a2744 0%, #1e40af 100%)",
+        }}
+      >
+        <span className="text-2xl">🍽️</span>
+        <div>
+          <h2 className="text-lg font-bold text-white">
+            Order Management / KOT
+          </h2>
+          <p className="text-xs text-blue-200">Kitchen order tracking</p>
+        </div>
+      </div>
+      <div className="flex justify-end mb-4">
         <Button onClick={() => setShowNew(true)}>+ New Order</Button>
       </div>
       <div className="overflow-x-auto">
@@ -1262,7 +1301,20 @@ function KitchenDisplay({
     );
   return (
     <div>
-      <h2 className="text-xl font-bold mb-4">Kitchen Display System</h2>
+      <div
+        className="rounded-xl px-5 py-3 mb-5 flex items-center gap-3 shadow-sm"
+        style={{
+          background: "linear-gradient(135deg, #1a2744 0%, #1e40af 100%)",
+        }}
+      >
+        <span className="text-2xl">🖥️</span>
+        <div>
+          <h2 className="text-lg font-bold text-white">
+            Kitchen Display System
+          </h2>
+          <p className="text-xs text-blue-200">Live kitchen orders</p>
+        </div>
+      </div>
       {active.length === 0 && (
         <p className="text-gray-700 text-center py-12">
           No active kitchen orders 🍳
@@ -1358,167 +1410,174 @@ function MenuManagement({
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Menu Management</h2>
-        <div className="flex gap-2 items-center">
-          <Button
-            size="sm"
-            style={{ background: "#16a34a", color: "#fff" }}
-            onClick={() => {
-              const headers = [
-                "Name",
-                "Category",
-                "Price",
-                "GST%",
-                "Veg/NonVeg",
-                "Available",
-                "Description",
-              ];
-              const rows = menu.map((m) =>
-                [
-                  `"${(m.name ?? "").replace(/"/g, '""')}"`,
-                  `"${m.category}"`,
-                  m.price,
-                  m.gstPct ?? 5,
-                  m.isVeg ? "Veg" : "NonVeg",
-                  m.available ? "Yes" : "No",
-                  `"${(m.description ?? "").replace(/"/g, '""')}"`,
-                ].join(","),
-              );
-              const csv = [headers.join(","), ...rows].join("\n");
-              const blob = new Blob([`\uFEFF${csv}`], {
-                type: "text/csv;charset=utf-8;",
-              });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = "menu_items_export.csv";
-              a.click();
-              URL.revokeObjectURL(url);
-            }}
-          >
-            📥 Export Excel
-          </Button>
-          <Button
-            size="sm"
-            style={{ background: "#2563eb", color: "#fff" }}
-            onClick={() => fileInputRef.current?.click()}
-          >
-            📤 Import CSV
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,.xlsx"
-            style={{ display: "none" }}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              const reader = new FileReader();
-              reader.onload = (ev) => {
-                try {
-                  const text = ev.target?.result as string;
-                  const lines = text.split(/\r?\n/).filter((l) => l.trim());
-                  if (lines.length < 2) {
-                    toast.error("No data rows found");
-                    return;
-                  }
-                  // Parse header
-                  const parseCSVLine = (line: string) => {
-                    const result: string[] = [];
-                    let cur = "";
-                    let inQuote = false;
-                    for (let i = 0; i < line.length; i++) {
-                      const ch = line[i];
-                      if (ch === '"' && !inQuote) {
-                        inQuote = true;
-                      } else if (ch === '"' && inQuote && line[i + 1] === '"') {
-                        cur += '"';
-                        i++;
-                      } else if (ch === '"' && inQuote) {
-                        inQuote = false;
-                      } else if (ch === "," && !inQuote) {
-                        result.push(cur);
-                        cur = "";
-                      } else {
-                        cur += ch;
-                      }
-                    }
-                    result.push(cur);
-                    return result;
-                  };
-                  const headers = parseCSVLine(lines[0]).map((h) =>
-                    h.trim().toLowerCase(),
-                  );
-                  const nameIdx = headers.indexOf("name");
-                  const catIdx = headers.indexOf("category");
-                  const priceIdx = headers.indexOf("price");
-                  const gstIdx = headers.findIndex((h) => h.includes("gst"));
-                  const vegIdx = headers.findIndex((h) => h.includes("veg"));
-                  const availIdx = headers.findIndex((h) =>
-                    h.includes("avail"),
-                  );
-                  const descIdx = headers.findIndex((h) => h.includes("desc"));
-                  if (nameIdx < 0 || priceIdx < 0) {
-                    toast.error("CSV must have Name and Price columns");
-                    return;
-                  }
-                  const imported: MenuItem[] = [];
-                  for (let i = 1; i < lines.length; i++) {
-                    const cols = parseCSVLine(lines[i]);
-                    const name = cols[nameIdx]?.trim();
-                    if (!name) continue;
-                    const rawCat = cols[catIdx]?.trim() ?? "";
-                    const category = MENU_CATEGORIES.includes(rawCat)
-                      ? rawCat
-                      : MENU_CATEGORIES[0];
-                    const price = Number.parseFloat(cols[priceIdx]) || 0;
-                    const gstPct =
-                      gstIdx >= 0 ? Number.parseFloat(cols[gstIdx]) || 5 : 5;
-                    const vegVal =
-                      vegIdx >= 0 ? cols[vegIdx]?.trim().toLowerCase() : "veg";
-                    const isVeg =
-                      vegVal === "veg" ||
-                      vegVal === "true" ||
-                      vegVal === "1" ||
-                      vegVal === "yes";
-                    const availVal =
-                      availIdx >= 0
-                        ? cols[availIdx]?.trim().toLowerCase()
-                        : "yes";
-                    const available =
-                      availVal === "yes" ||
-                      availVal === "true" ||
-                      availVal === "1";
-                    const description =
-                      descIdx >= 0 ? cols[descIdx]?.trim() : undefined;
-                    imported.push({
-                      id: uid(),
-                      name,
-                      category,
-                      price,
-                      gstPct,
-                      isVeg,
-                      available,
-                      description,
-                    });
-                  }
-                  if (imported.length === 0) {
-                    toast.error("No valid rows found");
-                    return;
-                  }
-                  setMenu((prev) => [...prev, ...imported]);
-                  toast.success(`${imported.length} items imported`);
-                } catch {
-                  toast.error("Failed to parse CSV file");
-                }
-                e.target.value = "";
-              };
-              reader.readAsText(file);
-            }}
-          />
-          <Button onClick={openNew}>+ Add Item</Button>
+      <div
+        className="rounded-xl px-5 py-3 mb-5 flex items-center gap-3 shadow-sm"
+        style={{
+          background: "linear-gradient(135deg, #1a2744 0%, #1e40af 100%)",
+        }}
+      >
+        <span className="text-2xl">✦</span>
+        <div>
+          <h2 className="text-lg font-bold text-white">Menu Management</h2>
+          <p className="text-xs text-blue-200">Items, categories & pricing</p>
         </div>
+      </div>
+      <div className="flex justify-end gap-2 items-center mb-4">
+        <Button
+          size="sm"
+          style={{ background: "#16a34a", color: "#fff" }}
+          onClick={() => {
+            const headers = [
+              "Name",
+              "Category",
+              "Price",
+              "GST%",
+              "Veg/NonVeg",
+              "Available",
+              "Description",
+            ];
+            const rows = menu.map((m) =>
+              [
+                `"${(m.name ?? "").replace(/"/g, '""')}"`,
+                `"${m.category}"`,
+                m.price,
+                m.gstPct ?? 5,
+                m.isVeg ? "Veg" : "NonVeg",
+                m.available ? "Yes" : "No",
+                `"${(m.description ?? "").replace(/"/g, '""')}"`,
+              ].join(","),
+            );
+            const csv = [headers.join(","), ...rows].join("\n");
+            const blob = new Blob([`\uFEFF${csv}`], {
+              type: "text/csv;charset=utf-8;",
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "menu_items_export.csv";
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+        >
+          📥 Export Excel
+        </Button>
+        <Button
+          size="sm"
+          style={{ background: "#2563eb", color: "#fff" }}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          📤 Import CSV
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,.xlsx"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+              try {
+                const text = ev.target?.result as string;
+                const lines = text.split(/\r?\n/).filter((l) => l.trim());
+                if (lines.length < 2) {
+                  toast.error("No data rows found");
+                  return;
+                }
+                // Parse header
+                const parseCSVLine = (line: string) => {
+                  const result: string[] = [];
+                  let cur = "";
+                  let inQuote = false;
+                  for (let i = 0; i < line.length; i++) {
+                    const ch = line[i];
+                    if (ch === '"' && !inQuote) {
+                      inQuote = true;
+                    } else if (ch === '"' && inQuote && line[i + 1] === '"') {
+                      cur += '"';
+                      i++;
+                    } else if (ch === '"' && inQuote) {
+                      inQuote = false;
+                    } else if (ch === "," && !inQuote) {
+                      result.push(cur);
+                      cur = "";
+                    } else {
+                      cur += ch;
+                    }
+                  }
+                  result.push(cur);
+                  return result;
+                };
+                const headers = parseCSVLine(lines[0]).map((h) =>
+                  h.trim().toLowerCase(),
+                );
+                const nameIdx = headers.indexOf("name");
+                const catIdx = headers.indexOf("category");
+                const priceIdx = headers.indexOf("price");
+                const gstIdx = headers.findIndex((h) => h.includes("gst"));
+                const vegIdx = headers.findIndex((h) => h.includes("veg"));
+                const availIdx = headers.findIndex((h) => h.includes("avail"));
+                const descIdx = headers.findIndex((h) => h.includes("desc"));
+                if (nameIdx < 0 || priceIdx < 0) {
+                  toast.error("CSV must have Name and Price columns");
+                  return;
+                }
+                const imported: MenuItem[] = [];
+                for (let i = 1; i < lines.length; i++) {
+                  const cols = parseCSVLine(lines[i]);
+                  const name = cols[nameIdx]?.trim();
+                  if (!name) continue;
+                  const rawCat = cols[catIdx]?.trim() ?? "";
+                  const category = MENU_CATEGORIES.includes(rawCat)
+                    ? rawCat
+                    : MENU_CATEGORIES[0];
+                  const price = Number.parseFloat(cols[priceIdx]) || 0;
+                  const gstPct =
+                    gstIdx >= 0 ? Number.parseFloat(cols[gstIdx]) || 5 : 5;
+                  const vegVal =
+                    vegIdx >= 0 ? cols[vegIdx]?.trim().toLowerCase() : "veg";
+                  const isVeg =
+                    vegVal === "veg" ||
+                    vegVal === "true" ||
+                    vegVal === "1" ||
+                    vegVal === "yes";
+                  const availVal =
+                    availIdx >= 0
+                      ? cols[availIdx]?.trim().toLowerCase()
+                      : "yes";
+                  const available =
+                    availVal === "yes" ||
+                    availVal === "true" ||
+                    availVal === "1";
+                  const description =
+                    descIdx >= 0 ? cols[descIdx]?.trim() : undefined;
+                  imported.push({
+                    id: uid(),
+                    name,
+                    category,
+                    price,
+                    gstPct,
+                    isVeg,
+                    available,
+                    description,
+                  });
+                }
+                if (imported.length === 0) {
+                  toast.error("No valid rows found");
+                  return;
+                }
+                setMenu((prev) => [...prev, ...imported]);
+                toast.success(`${imported.length} items imported`);
+              } catch {
+                toast.error("Failed to parse CSV file");
+              }
+              e.target.value = "";
+            };
+            reader.readAsText(file);
+          }}
+        />
+        <Button onClick={openNew}>+ Add Item</Button>
       </div>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex-wrap h-auto">
@@ -1910,7 +1969,18 @@ function Billing({
 
   return (
     <div className="max-w-2xl">
-      <h2 className="text-xl font-bold mb-4">Billing</h2>
+      <div
+        className="rounded-xl px-5 py-3 mb-5 flex items-center gap-3 shadow-sm"
+        style={{
+          background: "linear-gradient(135deg, #1a2744 0%, #1e40af 100%)",
+        }}
+      >
+        <span className="text-2xl">🧾</span>
+        <div>
+          <h2 className="text-lg font-bold text-white">Billing</h2>
+          <p className="text-xs text-blue-200">Generate restaurant bills</p>
+        </div>
+      </div>
       <div className="space-y-4">
         {/* Customer Search */}
         <Card>
@@ -2271,7 +2341,18 @@ function BillHistory({ bills }: { bills: Bill[] }) {
   );
   return (
     <div>
-      <h2 className="text-xl font-bold mb-4">Bill History</h2>
+      <div
+        className="rounded-xl px-5 py-3 mb-5 flex items-center gap-3 shadow-sm"
+        style={{
+          background: "linear-gradient(135deg, #1a2744 0%, #1e40af 100%)",
+        }}
+      >
+        <span className="text-2xl">📋</span>
+        <div>
+          <h2 className="text-lg font-bold text-white">Bill History</h2>
+          <p className="text-xs text-blue-200">Past bills & reprints</p>
+        </div>
+      </div>
       <Input
         className="mb-4 max-w-xs"
         placeholder="Search by Bill# or Table..."
@@ -2389,7 +2470,18 @@ function BanquetBillingSection({
   const halls = ["Maharaja Hall", "Rajwada Hall", "Garden Terrace"];
   return (
     <div>
-      <h2 className="text-xl font-bold mb-4">Banquet Billing</h2>
+      <div
+        className="rounded-xl px-5 py-3 mb-5 flex items-center gap-3 shadow-sm"
+        style={{
+          background: "linear-gradient(135deg, #1a2744 0%, #1e40af 100%)",
+        }}
+      >
+        <span className="text-2xl">🏛️</span>
+        <div>
+          <h2 className="text-lg font-bold text-white">Banquet Billing</h2>
+          <p className="text-xs text-blue-200">Event & function billing</p>
+        </div>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
@@ -2742,8 +2834,19 @@ function BanquetReservations({
     );
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Banquet Reservations</h2>
+      <div
+        className="rounded-xl px-5 py-3 mb-5 flex items-center gap-3 shadow-sm"
+        style={{
+          background: "linear-gradient(135deg, #1a2744 0%, #1e40af 100%)",
+        }}
+      >
+        <span className="text-2xl">📅</span>
+        <div>
+          <h2 className="text-lg font-bold text-white">Banquet Reservations</h2>
+          <p className="text-xs text-blue-200">Hall bookings</p>
+        </div>
+      </div>
+      <div className="flex justify-end mb-4">
         <Button onClick={() => setShowForm(true)}>+ Add Reservation</Button>
       </div>
       <div className="overflow-x-auto">
@@ -3000,8 +3103,19 @@ function Customers({
   };
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Customers</h2>
+      <div
+        className="rounded-xl px-5 py-3 mb-5 flex items-center gap-3 shadow-sm"
+        style={{
+          background: "linear-gradient(135deg, #1a2744 0%, #1e40af 100%)",
+        }}
+      >
+        <span className="text-2xl">👥</span>
+        <div>
+          <h2 className="text-lg font-bold text-white">Customers</h2>
+          <p className="text-xs text-blue-200">Customer records</p>
+        </div>
+      </div>
+      <div className="flex justify-end mb-4">
         <Button onClick={openNew}>+ Add Customer</Button>
       </div>
       <Input
@@ -3152,8 +3266,19 @@ function Inventory({
         : { label: "OK", cls: "bg-green-100 text-green-700" };
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Inventory</h2>
+      <div
+        className="rounded-xl px-5 py-3 mb-5 flex items-center gap-3 shadow-sm"
+        style={{
+          background: "linear-gradient(135deg, #1a2744 0%, #1e40af 100%)",
+        }}
+      >
+        <span className="text-2xl">📦</span>
+        <div>
+          <h2 className="text-lg font-bold text-white">Inventory</h2>
+          <p className="text-xs text-blue-200">Stock management</p>
+        </div>
+      </div>
+      <div className="flex justify-end mb-4">
         <Button onClick={openNew}>+ Add Item</Button>
       </div>
       <div className="overflow-x-auto">
@@ -3318,8 +3443,19 @@ function Expenses({
   ];
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Expenses</h2>
+      <div
+        className="rounded-xl px-5 py-3 mb-5 flex items-center gap-3 shadow-sm"
+        style={{
+          background: "linear-gradient(135deg, #1a2744 0%, #1e40af 100%)",
+        }}
+      >
+        <span className="text-2xl">💸</span>
+        <div>
+          <h2 className="text-lg font-bold text-white">Expenses</h2>
+          <p className="text-xs text-blue-200">Track expenses</p>
+        </div>
+      </div>
+      <div className="flex justify-end mb-4">
         <Button onClick={() => setShowForm(true)}>+ Add Expense</Button>
       </div>
       <Card className="mb-4 max-w-xs">
@@ -3473,8 +3609,19 @@ function ReceiptRegister({
   const total = receipts.reduce((s, r) => s + r.amount, 0);
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Receipt Register</h2>
+      <div
+        className="rounded-xl px-5 py-3 mb-5 flex items-center gap-3 shadow-sm"
+        style={{
+          background: "linear-gradient(135deg, #1a2744 0%, #1e40af 100%)",
+        }}
+      >
+        <span className="text-2xl">🧾</span>
+        <div>
+          <h2 className="text-lg font-bold text-white">Receipt Register</h2>
+          <p className="text-xs text-blue-200">Payment receipts</p>
+        </div>
+      </div>
+      <div className="flex justify-end mb-4">
         <Button onClick={() => setShowForm(true)}>+ Add Receipt</Button>
       </div>
       <Card className="mb-4 max-w-xs">
@@ -3626,8 +3773,19 @@ function DueManagement({
     .reduce((s, d) => s + d.amount, 0);
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Due Management</h2>
+      <div
+        className="rounded-xl px-5 py-3 mb-5 flex items-center gap-3 shadow-sm"
+        style={{
+          background: "linear-gradient(135deg, #1a2744 0%, #1e40af 100%)",
+        }}
+      >
+        <span className="text-2xl">⚠️</span>
+        <div>
+          <h2 className="text-lg font-bold text-white">Due Management</h2>
+          <p className="text-xs text-blue-200">Pending dues</p>
+        </div>
+      </div>
+      <div className="flex justify-end mb-4">
         <Button onClick={() => setShowForm(true)}>+ Add Due</Button>
       </div>
       <div className="flex gap-3 mb-4 items-center">
@@ -5918,12 +6076,18 @@ function RoomFoodBillingRestaurantSection() {
 
   return (
     <div>
-      <h2 className="text-xl font-bold mb-1 text-gray-900">
-        Room Food Billing
-      </h2>
-      <p className="text-gray-600 text-sm mb-4">
-        Order food for checked-in guest rooms
-      </p>
+      <div
+        className="rounded-xl px-5 py-3 mb-5 flex items-center gap-3 shadow-sm"
+        style={{
+          background: "linear-gradient(135deg, #1a2744 0%, #1e40af 100%)",
+        }}
+      >
+        <span className="text-2xl">🛏️</span>
+        <div>
+          <h2 className="text-lg font-bold text-white">Room Food Billing</h2>
+          <p className="text-xs text-blue-200">Room service billing</p>
+        </div>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <Card className="mb-4">
@@ -6421,8 +6585,9 @@ function RestaurantPOSApp({ onLogout }: { onLogout: () => void }) {
   const [receipts, setReceipts] = useLS<Receipt[]>("restaurant_receipts", []);
   const [dues, setDues] = useLS<Due[]>("restaurant_dues", DEFAULT_DUES);
 
+  const [isPending, startTransition] = useTransition();
   const navTo = (id: string) => {
-    setActive(id);
+    startTransition(() => setActive(id));
     setSidebarOpen(false);
   };
 
@@ -6590,28 +6755,33 @@ function RestaurantPOSApp({ onLogout }: { onLogout: () => void }) {
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Topbar */}
-        <header className="bg-white border-b px-4 py-3 flex items-center gap-3 shadow-sm">
+        <header
+          className="px-4 py-3 flex items-center gap-3 shadow-sm"
+          style={{
+            background: "linear-gradient(135deg, #1a2744 0%, #1e40af 100%)",
+          }}
+        >
           <button
             type="button"
-            className="md:hidden p-1 rounded hover:bg-gray-100"
+            className="md:hidden p-1 rounded hover:bg-white/10"
             onClick={() => setSidebarOpen(true)}
           >
-            <span className="text-xl">☰</span>
+            <span className="text-xl text-white">☰</span>
           </button>
           <div className="flex-1">
-            <div className="font-bold text-gray-800">
+            <div className="font-bold text-white">
               {NAV_ITEMS.find((n) => n.id === active)?.label ?? "Restaurant"}
             </div>
           </div>
           <a
             href="/admin"
-            className="text-sm text-gray-700 hover:text-gray-800 hidden md:block"
+            className="text-sm text-white/80 hover:text-white hidden md:block"
           >
             Admin Panel
           </a>
           <a
             href="/"
-            className="text-sm text-gray-700 hover:text-gray-800 hidden md:block"
+            className="text-sm text-white/80 hover:text-white hidden md:block"
           >
             Hotel Website
           </a>
@@ -6619,6 +6789,33 @@ function RestaurantPOSApp({ onLogout }: { onLogout: () => void }) {
 
         {/* Content */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
+          {isPending && (
+            <div
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: "rgba(0,0,0,0.15)",
+                zIndex: 9999,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <div
+                style={{
+                  width: 40,
+                  height: 40,
+                  border: "4px solid #d4a017",
+                  borderTopColor: "transparent",
+                  borderRadius: "50%",
+                  animation: "spin 0.7s linear infinite",
+                }}
+              />
+            </div>
+          )}
           {renderContent()}
         </main>
       </div>

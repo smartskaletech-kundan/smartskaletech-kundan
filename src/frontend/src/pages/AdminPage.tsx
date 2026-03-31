@@ -71,6 +71,8 @@ import {
   FileBarChart,
   FileSpreadsheet,
   FileText,
+  Gift,
+  Globe,
   Hash,
   Hotel,
   Image as ImageIcon,
@@ -82,7 +84,9 @@ import {
   MessageSquare,
   Monitor,
   Moon,
+  Package,
   Pencil,
+  PhoneCall,
   PieChart,
   Printer as PrinterIcon,
   Receipt,
@@ -100,9 +104,17 @@ import {
   UserPlus,
   Users,
   UtensilsCrossed,
+  Wallet,
+  Wrench,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import {
   Bar,
   BarChart,
@@ -450,6 +462,33 @@ const NAV_GROUPS = [
       { id: "clear-data", label: "Clear All Data", icon: Trash2 },
     ],
   },
+  {
+    id: "revenue-mgmt",
+    label: "REVENUE MANAGEMENT",
+    items: [
+      { id: "dynamic-pricing", label: "Dynamic Pricing", icon: TrendingUp },
+      { id: "rate-calendar", label: "Rate Calendar", icon: CalendarDays },
+      { id: "ota-rates", label: "OTA Rate Sync", icon: Globe },
+    ],
+  },
+  {
+    id: "operations",
+    label: "OPERATIONS",
+    items: [
+      { id: "inventory", label: "Inventory & Stock", icon: Package },
+      { id: "expense-tracker", label: "Expense Tracker", icon: Wallet },
+      { id: "maintenance", label: "Maintenance Requests", icon: Wrench },
+    ],
+  },
+  {
+    id: "crm-marketing",
+    label: "CRM & MARKETING",
+    items: [
+      { id: "leads", label: "Leads Management", icon: PhoneCall },
+      { id: "loyalty-program", label: "Loyalty Program", icon: Gift },
+      { id: "reviews-reputation", label: "Reviews & Reputation", icon: Star },
+    ],
+  },
 ];
 const NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
 
@@ -710,21 +749,22 @@ const KOT_TABLES = [
 ];
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
-const GOLD = "#c9a84c";
-const DARK_BG = "#f8fafc";
+const GOLD = "#f59e0b";
+const DARK_BG = "#f0f4f8";
 const CARD_BG = "#ffffff";
-const SIDEBAR_BG = "#f1f5f9";
+const SIDEBAR_BG = "linear-gradient(180deg, #1a2744 0%, #0f1d38 100%)";
 const BORDER = "#e2e8f0";
 
 function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   return (
-    <div className="mb-6">
+    <div className="page-header mb-6">
       <h2
         style={{
-          color: GOLD,
-          fontFamily: "'Playfair Display', serif",
-          fontSize: "1.5rem",
+          color: "white",
+          fontFamily: "'Plus Jakarta Sans', sans-serif",
+          fontSize: "1.25rem",
           fontWeight: 700,
+          margin: 0,
         }}
       >
         {title}
@@ -732,10 +772,10 @@ function SectionTitle({ title, sub }: { title: string; sub?: string }) {
       {sub && (
         <p
           style={{
-            color: "#1e293b",
-            fontWeight: 600,
+            color: "rgba(255,255,255,0.75)",
+            fontWeight: 500,
             fontSize: "0.8rem",
-            marginTop: 2,
+            marginTop: 4,
           }}
         >
           {sub}
@@ -745,24 +785,33 @@ function SectionTitle({ title, sub }: { title: string; sub?: string }) {
   );
 }
 
+const STAT_GRADIENTS: Record<string, string> = {
+  "#ef4444": "linear-gradient(135deg, #991b1b, #ef4444)",
+  "#22c55e": "linear-gradient(135deg, #065f46, #10b981)",
+  "#a78bfa": "linear-gradient(135deg, #4c1d95, #8b5cf6)",
+  "#f59e0b": "linear-gradient(135deg, #92400e, #f59e0b)",
+};
 function StatCard({
   label,
   value,
   color,
 }: { label: string; value: string | number; color?: string }) {
+  const grad =
+    STAT_GRADIENTS[color ?? GOLD] ??
+    "linear-gradient(135deg, #1e40af, #3b82f6)";
   return (
     <div
       style={{
-        background: CARD_BG,
-        border: `1px solid ${BORDER}`,
-        borderLeft: `3px solid ${color ?? GOLD}`,
-        borderRadius: 8,
+        background: grad,
+        borderRadius: 14,
         padding: "1rem 1.25rem",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.18)",
+        color: "white",
       }}
     >
       <p
         style={{
-          color: "#1e293b",
+          color: "rgba(255,255,255,0.8)",
           fontWeight: 600,
           fontSize: "0.72rem",
           textTransform: "uppercase",
@@ -773,7 +822,7 @@ function StatCard({
       </p>
       <p
         style={{
-          color: color ?? GOLD,
+          color: "white",
           fontSize: "1.8rem",
           fontWeight: 700,
           marginTop: 4,
@@ -1386,15 +1435,16 @@ function HousekeepingSection() {
   const [hkSelected, setHkSelected] = useState<Set<string>>(new Set());
   const [hkBulkStatus, setHkBulkStatus] = useState<CleanStatus>("Clean");
 
-  // Auto-set Dirty when guest checks out
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional partial deps
+  // Auto-set Dirty when guest checks out — use a ref to avoid infinite re-render loop
+  const occupiedRoomsRef = useRef<Set<string>>(new Set());
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional - only re-run when checkIns changes
   useEffect(() => {
-    const prev = new Set<string>(
-      Object.entries(data)
-        .filter(([, v]) => (v as { wasOccupied?: boolean }).wasOccupied)
-        .map(([k]) => k),
+    const prevOccupied = occupiedRoomsRef.current;
+    const newlyCheckedOut = [...prevOccupied].filter(
+      (r) => !occupiedRooms.has(r),
     );
-    const newlyCheckedOut = [...prev].filter((r) => !occupiedRooms.has(r));
+    const needsMark = [...occupiedRooms].filter((r) => !prevOccupied.has(r));
+    occupiedRoomsRef.current = new Set(occupiedRooms);
     if (newlyCheckedOut.length > 0) {
       setData((d) => {
         const updated = { ...d };
@@ -1405,8 +1455,6 @@ function HousekeepingSection() {
         return updated;
       });
     }
-    // Mark currently occupied rooms
-    const needsMark = [...occupiedRooms].filter((r) => !data[r]?.wasOccupied);
     if (needsMark.length > 0) {
       setData((d) => {
         const updated = { ...d };
@@ -6762,7 +6810,7 @@ function GuestFeedbackSection() {
 }
 
 function WhatsAppTemplatesSection() {
-  const GOLD = "#c9a84c";
+  const GOLD = "#f59e0b";
   const CARD_BG = "#fff";
   const BORDER = "#e2e8f0";
   const [templates, setTemplates] = useState<
@@ -7036,7 +7084,7 @@ function WhatsAppTemplatesSection() {
 // ─── KDS SECTION ─────────────────────────────────────────────────────────────
 // ─── KDS SECTION ─────────────────────────────────────────────────────────────
 function KDSSection() {
-  const GOLD = "#c9a84c";
+  const GOLD = "#f59e0b";
   const CARD_BG = "#fff";
   const BORDER = "#e2e8f0";
 
@@ -16571,18 +16619,70 @@ function AllInvoicesSection() {
   );
 }
 
+class SectionErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error?: string }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 32, textAlign: "center", color: "#ef4444" }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
+          <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>
+            Section Error
+          </div>
+          <div style={{ color: "#6b7280", fontSize: 14, marginBottom: 16 }}>
+            {this.state.error}
+          </div>
+          <button
+            type="button"
+            onClick={() => this.setState({ hasError: false })}
+            style={{
+              background: "#1e40af",
+              color: "#fff",
+              padding: "8px 20px",
+              borderRadius: 6,
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ─── FOOD SALE REPORT ─────────────────────────────────────────────────────────
 function FoodSaleReportSection() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [search, setSearch] = useState("");
 
-  const restaurantBills: any[] = JSON.parse(
-    localStorage.getItem("hotelRestaurantBills") || "[]",
-  );
-  const roomFoodOrders: any[] = JSON.parse(
-    localStorage.getItem("hotelRoomFoodOrders") || "[]",
-  );
+  const tryParseF = (s: string | null): any[] => {
+    try {
+      return s ? JSON.parse(s) : [];
+    } catch {
+      return [];
+    }
+  };
+  const restaurantBills: any[] = [
+    ...tryParseF(localStorage.getItem("hotelRestaurantBills")),
+    ...tryParseF(localStorage.getItem("kdm_restaurant_bills")),
+  ];
+  const roomFoodOrders: any[] = [
+    ...tryParseF(localStorage.getItem("hotelRoomFoodOrders")),
+    ...tryParseF(localStorage.getItem("kdm_room_food_orders")),
+  ];
 
   const allRows = [
     ...restaurantBills.map((b: any, i: number) => ({
@@ -17114,15 +17214,24 @@ function GuestBillSummarySection() {
   const [toDate, setToDate] = useState("");
   const [search, setSearch] = useState("");
 
+  const tryParseG = (s: string | null): any[] => {
+    try {
+      return s ? JSON.parse(s) : [];
+    } catch {
+      return [];
+    }
+  };
   const checkIns: any[] = JSON.parse(
     localStorage.getItem("hotelCheckIns") || "[]",
   );
-  const roomFoodOrders: any[] = JSON.parse(
-    localStorage.getItem("hotelRoomFoodOrders") || "[]",
-  );
-  const restaurantBills: any[] = JSON.parse(
-    localStorage.getItem("hotelRestaurantBills") || "[]",
-  );
+  const roomFoodOrders: any[] = [
+    ...tryParseG(localStorage.getItem("hotelRoomFoodOrders")),
+    ...tryParseG(localStorage.getItem("kdm_room_food_orders")),
+  ];
+  const restaurantBills: any[] = [
+    ...tryParseG(localStorage.getItem("hotelRestaurantBills")),
+    ...tryParseG(localStorage.getItem("kdm_restaurant_bills")),
+  ];
 
   const rows = checkIns
     .filter((g: any) => {
@@ -17686,15 +17795,24 @@ function CashierReportSection() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
+  const tryParseC = (s: string | null): any[] => {
+    try {
+      return s ? JSON.parse(s) : [];
+    } catch {
+      return [];
+    }
+  };
   const checkIns: any[] = JSON.parse(
     localStorage.getItem("hotelCheckIns") || "[]",
   );
-  const roomFoodOrders: any[] = JSON.parse(
-    localStorage.getItem("hotelRoomFoodOrders") || "[]",
-  );
-  const restaurantBills: any[] = JSON.parse(
-    localStorage.getItem("hotelRestaurantBills") || "[]",
-  );
+  const roomFoodOrders: any[] = [
+    ...tryParseC(localStorage.getItem("hotelRoomFoodOrders")),
+    ...tryParseC(localStorage.getItem("kdm_room_food_orders")),
+  ];
+  const restaurantBills: any[] = [
+    ...tryParseC(localStorage.getItem("hotelRestaurantBills")),
+    ...tryParseC(localStorage.getItem("kdm_restaurant_bills")),
+  ];
   const banquetBills: any[] = JSON.parse(
     localStorage.getItem("hotelBanquetBills") || "[]",
   );
@@ -19356,7 +19474,7 @@ function ClearDataSection() {
                     <td
                       style={{
                         padding: "8px 12px",
-                        color: "#f1f5f9",
+                        color: "rgba(255,255,255,0.9)",
                         fontFamily: "monospace",
                         fontSize: "0.78rem",
                       }}
@@ -19658,7 +19776,7 @@ function ClearDataSection() {
   );
 }
 function GuestHistorySection() {
-  const GOLD = "#c9a84c";
+  const GOLD = "#f59e0b";
   const [search, setSearch] = useState("");
   const [selectedGuest, setSelectedGuest] = useState<any>(null);
 
@@ -20097,7 +20215,7 @@ function OwnerApprovalsSection({
     toast.error("Owner rejected.");
   };
 
-  const GOLD = "#c9a84c";
+  const GOLD = "#f59e0b";
 
   return (
     <div style={{ padding: 24 }}>
@@ -20303,7 +20421,7 @@ interface ManagedImage {
 }
 
 function ImageManagerSection() {
-  const GOLD = "#c9a84c";
+  const GOLD = "#f59e0b";
 
   type TabKey =
     | "banner"
@@ -21033,6 +21151,4473 @@ function ImageManagerSection() {
   );
 }
 
+// ─── REVENUE MANAGEMENT SECTIONS ─────────────────────────────────────────────
+
+function DynamicPricingSection() {
+  const ROOM_TYPES = ["Executive", "Deluxe", "Standard", "Suite"];
+  const DEFAULT_TOTALS: Record<string, number> = {
+    Executive: 10,
+    Deluxe: 8,
+    Standard: 15,
+    Suite: 5,
+  };
+  const BASE_RATES: Record<string, number> = {
+    Executive: 2500,
+    Deluxe: 3500,
+    Standard: 1800,
+    Suite: 5000,
+  };
+
+  // Load pricing rules from localStorage
+  const loadRules = () => {
+    try {
+      const r = JSON.parse(localStorage.getItem("kdm_pricing_rules") || "{}");
+      return {
+        weekendMarkup: r.weekendMarkup ?? "15",
+        peakMarkup: r.peakMarkup ?? "25",
+      };
+    } catch {
+      return { weekendMarkup: "15", peakMarkup: "25" };
+    }
+  };
+
+  const [appliedRates, setAppliedRates] = useState<Record<string, number>>(
+    () => {
+      try {
+        return JSON.parse(localStorage.getItem("kdm_dynamic_rates") || "{}");
+      } catch {
+        return {};
+      }
+    },
+  );
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [weekendMarkup, setWeekendMarkup] = useState(
+    () => loadRules().weekendMarkup,
+  );
+  const [peakMarkup, setPeakMarkup] = useState(() => loadRules().peakMarkup);
+  const [saveMsg, setSaveMsg] = useState("");
+
+  // Live occupancy from localStorage
+  const calcOccupancy = (): Record<string, number> => {
+    try {
+      const checkIns: any[] = JSON.parse(
+        localStorage.getItem("hotelCheckIns") || "[]",
+      );
+      const counts: Record<string, number> = {
+        Executive: 0,
+        Deluxe: 0,
+        Standard: 0,
+        Suite: 0,
+      };
+      for (const g of checkIns) {
+        const s = g.status;
+        const isCheckedIn =
+          s === "checkedIn" ||
+          s === "CheckedIn" ||
+          s === "checked_in" ||
+          (typeof s === "object" && s !== null && "checkedIn" in s);
+        if (!isCheckedIn) continue;
+        const rt: string = (g.roomType || g.roomCategory || "").toLowerCase();
+        if (rt.includes("suite")) counts.Suite++;
+        else if (rt.includes("deluxe")) counts.Deluxe++;
+        else if (rt.includes("executive")) counts.Executive++;
+        else if (rt.includes("standard")) counts.Standard++;
+      }
+      let totals: Record<string, number> = { ...DEFAULT_TOTALS };
+      try {
+        const rooms: any[] = JSON.parse(
+          localStorage.getItem("kdm_rooms") || "[]",
+        );
+        if (rooms.length > 0) {
+          const t: Record<string, number> = {
+            Executive: 0,
+            Deluxe: 0,
+            Standard: 0,
+            Suite: 0,
+          };
+          for (const r of rooms) {
+            const cat: string = (r.category || r.type || "").toLowerCase();
+            if (cat.includes("suite")) t.Suite++;
+            else if (cat.includes("deluxe")) t.Deluxe++;
+            else if (cat.includes("executive")) t.Executive++;
+            else if (cat.includes("standard")) t.Standard++;
+          }
+          if (t.Executive + t.Deluxe + t.Standard + t.Suite > 0) totals = t;
+        }
+      } catch {
+        /* use defaults */
+      }
+      const result: Record<string, number> = {};
+      for (const type of ["Executive", "Deluxe", "Standard", "Suite"]) {
+        const total = totals[type] || DEFAULT_TOTALS[type];
+        result[type] = total > 0 ? Math.round((counts[type] / total) * 100) : 0;
+      }
+      return result;
+    } catch {
+      return { Executive: 0, Deluxe: 0, Standard: 0, Suite: 0 };
+    }
+  };
+
+  const [occupancy, setOccupancy] = useState<Record<string, number>>(() =>
+    calcOccupancy(),
+  );
+
+  // Refresh occupancy on mount
+  useState(() => {
+    setOccupancy(calcOccupancy());
+  });
+
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0=Sun, 6=Sat
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const dayName = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ][dayOfWeek];
+
+  const totalRooms = Object.values(DEFAULT_TOTALS).reduce((a, b) => a + b, 0);
+  const totalCheckedIn = () => {
+    try {
+      const checkIns: any[] = JSON.parse(
+        localStorage.getItem("hotelCheckIns") || "[]",
+      );
+      return checkIns.filter((g: any) => {
+        const s = g.status;
+        return (
+          s === "checkedIn" ||
+          s === "CheckedIn" ||
+          s === "checked_in" ||
+          (typeof s === "object" && s !== null && "checkedIn" in s)
+        );
+      }).length;
+    } catch {
+      return 0;
+    }
+  };
+  const hotelOccupancy = Math.min(
+    100,
+    Math.round((totalCheckedIn() / totalRooms) * 100),
+  );
+
+  const calcSuggested = (type: string) => {
+    const base = BASE_RATES[type];
+    const occ = occupancy[type] || 0;
+    const wm = Number(weekendMarkup) || 0;
+    const occMultiplier = 1 + (occ / 100) * 0.5;
+    const weekendMultiplier = isWeekend ? 1 + wm / 100 : 1;
+    return Math.round(base * occMultiplier * weekendMultiplier);
+  };
+
+  const saveRules = (wm: string, pm: string) => {
+    localStorage.setItem(
+      "kdm_pricing_rules",
+      JSON.stringify({ weekendMarkup: wm, peakMarkup: pm }),
+    );
+    setSaveMsg("Saved!");
+    setTimeout(() => setSaveMsg(""), 2000);
+  };
+
+  const applyRate = (type: string, rate: number) => {
+    const updated = { ...appliedRates, [type]: rate };
+    setAppliedRates(updated);
+    localStorage.setItem("kdm_dynamic_rates", JSON.stringify(updated));
+    // Also update base rates for check-in auto-fill
+    try {
+      const baseRates = JSON.parse(
+        localStorage.getItem("kdm_room_base_rates") || "{}",
+      );
+      baseRates[type] = rate;
+      localStorage.setItem("kdm_room_base_rates", JSON.stringify(baseRates));
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const applyAllSuggested = () => {
+    const updated: Record<string, number> = { ...appliedRates };
+    const baseRates: Record<string, number> = (() => {
+      try {
+        return JSON.parse(localStorage.getItem("kdm_room_base_rates") || "{}");
+      } catch {
+        return {};
+      }
+    })();
+    for (const type of ROOM_TYPES) {
+      const sug = calcSuggested(type);
+      updated[type] = sug;
+      baseRates[type] = sug;
+    }
+    setAppliedRates(updated);
+    localStorage.setItem("kdm_dynamic_rates", JSON.stringify(updated));
+    localStorage.setItem("kdm_room_base_rates", JSON.stringify(baseRates));
+    setSaveMsg("All rates applied!");
+    setTimeout(() => setSaveMsg(""), 2500);
+  };
+
+  return (
+    <div>
+      <SectionTitle
+        title="Dynamic Pricing"
+        sub="AI-driven rate optimization based on live occupancy"
+      />
+
+      {/* Status Bar */}
+      <div
+        style={{
+          background: "linear-gradient(90deg,#1a2744,#1e40af)",
+          borderRadius: 10,
+          padding: "14px 20px",
+          marginBottom: 18,
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 24,
+          alignItems: "center",
+        }}
+      >
+        <div style={{ color: "#fff" }}>
+          <span style={{ fontSize: "0.75rem", opacity: 0.75 }}>TODAY</span>
+          <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>
+            {dayName}
+            {isWeekend && (
+              <span
+                style={{
+                  marginLeft: 8,
+                  background: "#fbbf24",
+                  color: "#1a2744",
+                  borderRadius: 4,
+                  padding: "1px 7px",
+                  fontSize: "0.72rem",
+                  fontWeight: 700,
+                }}
+              >
+                WEEKEND
+              </span>
+            )}
+          </div>
+        </div>
+        <div style={{ color: "#fff" }}>
+          <span style={{ fontSize: "0.75rem", opacity: 0.75 }}>
+            HOTEL OCCUPANCY
+          </span>
+          <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>
+            {hotelOccupancy}%
+            <span style={{ marginLeft: 6, fontSize: "0.72rem", opacity: 0.75 }}>
+              ({totalCheckedIn()}/{totalRooms} rooms)
+            </span>
+          </div>
+        </div>
+        <div style={{ color: "#fff" }}>
+          <span style={{ fontSize: "0.75rem", opacity: 0.75 }}>
+            ACTIVE RULES
+          </span>
+          <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>
+            {isWeekend ? `Weekend +${weekendMarkup}%` : "Weekday"}
+            {Number(peakMarkup) > 0 && (
+              <span style={{ marginLeft: 8, opacity: 0.8 }}>
+                Peak +{peakMarkup}%
+              </span>
+            )}
+          </div>
+        </div>
+        <div style={{ marginLeft: "auto" }}>
+          <button
+            type="button"
+            onClick={() => setOccupancy(calcOccupancy())}
+            style={{
+              padding: "6px 14px",
+              background: "rgba(255,255,255,0.15)",
+              color: "#fff",
+              border: "1px solid rgba(255,255,255,0.3)",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontSize: "0.8rem",
+            }}
+          >
+            🔄 Refresh Occupancy
+          </button>
+        </div>
+      </div>
+
+      {/* Apply All button */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          marginBottom: 12,
+          gap: 10,
+          alignItems: "center",
+        }}
+      >
+        {saveMsg && (
+          <span
+            style={{ color: "#16a34a", fontWeight: 600, fontSize: "0.85rem" }}
+          >
+            {saveMsg}
+          </span>
+        )}
+        <button
+          type="button"
+          data-ocid="dynamic_pricing.primary_button"
+          onClick={applyAllSuggested}
+          style={{
+            padding: "9px 22px",
+            background: "linear-gradient(90deg,#16a34a,#15803d)",
+            color: "#fff",
+            border: "none",
+            borderRadius: 8,
+            cursor: "pointer",
+            fontWeight: 700,
+            fontSize: "0.88rem",
+            boxShadow: "0 2px 8px rgba(22,163,74,0.3)",
+          }}
+        >
+          ✅ Apply All Suggested Rates
+        </button>
+      </div>
+
+      {/* Room Type Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        {ROOM_TYPES.map((type) => {
+          const base = BASE_RATES[type];
+          const occ = occupancy[type] || 0;
+          const sug = calcSuggested(type);
+          const applied = appliedRates[type] || base;
+          const wm = Number(weekendMarkup) || 0;
+          const isHighOcc = occ >= 75;
+          return (
+            <div
+              key={type}
+              data-ocid="dynamic_pricing.card"
+              style={{
+                background: "#fff",
+                borderRadius: 10,
+                padding: 20,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                border: isHighOcc
+                  ? "1.5px solid #ef4444"
+                  : "1.5px solid #e2e8f0",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: 700,
+                  fontSize: "1rem",
+                  marginBottom: 8,
+                  color: "#1a2744",
+                }}
+              >
+                {type}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 4,
+                  fontSize: "0.82rem",
+                }}
+              >
+                <span style={{ color: "#64748b" }}>Base Rate</span>
+                <span style={{ fontWeight: 600 }}>
+                  ₹{base.toLocaleString("en-IN")}
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 4,
+                  fontSize: "0.82rem",
+                }}
+              >
+                <span style={{ color: "#64748b" }}>Occupancy</span>
+                <span
+                  style={{
+                    fontWeight: 600,
+                    color: isHighOcc
+                      ? "#ef4444"
+                      : occ >= 50
+                        ? "#f59e0b"
+                        : "#22c55e",
+                  }}
+                >
+                  {occ}%
+                  {isHighOcc && (
+                    <span
+                      style={{
+                        marginLeft: 4,
+                        fontSize: "0.68rem",
+                        background: "#fef2f2",
+                        color: "#ef4444",
+                        borderRadius: 3,
+                        padding: "1px 4px",
+                      }}
+                    >
+                      HIGH
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 4,
+                  fontSize: "0.82rem",
+                }}
+              >
+                <span style={{ color: "#64748b" }}>Suggested</span>
+                <div style={{ textAlign: "right" }}>
+                  <span style={{ fontWeight: 600, color: "#1e40af" }}>
+                    ₹{sug.toLocaleString("en-IN")}
+                  </span>
+                  <div style={{ fontSize: "0.68rem", marginTop: 1 }}>
+                    {isWeekend && wm > 0 && (
+                      <span style={{ color: "#f59e0b", fontWeight: 600 }}>
+                        Weekend +{wm}%{" "}
+                      </span>
+                    )}
+                    {isHighOcc && (
+                      <span style={{ color: "#ef4444", fontWeight: 600 }}>
+                        High Occ.
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: 12,
+                  fontSize: "0.82rem",
+                }}
+              >
+                <span style={{ color: "#64748b" }}>Applied</span>
+                <span style={{ fontWeight: 700, color: "#16a34a" }}>
+                  ₹{applied.toLocaleString("en-IN")}
+                </span>
+              </div>
+              <button
+                type="button"
+                data-ocid="dynamic_pricing.secondary_button"
+                onClick={() => applyRate(type, sug)}
+                style={{
+                  width: "100%",
+                  padding: "6px 0",
+                  background: "linear-gradient(90deg,#1a2744,#1e40af)",
+                  color: "#fff",
+                  borderRadius: 6,
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "0.8rem",
+                  marginBottom: 8,
+                }}
+              >
+                Apply Suggested Rate
+              </button>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input
+                  type="number"
+                  placeholder="Override rate"
+                  data-ocid="dynamic_pricing.input"
+                  value={overrides[type] || ""}
+                  onChange={(e) =>
+                    setOverrides((p) => ({ ...p, [type]: e.target.value }))
+                  }
+                  style={{
+                    flex: 1,
+                    padding: "5px 8px",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 6,
+                    fontSize: "0.8rem",
+                  }}
+                />
+                <button
+                  type="button"
+                  data-ocid="dynamic_pricing.save_button"
+                  onClick={() => {
+                    if (overrides[type])
+                      applyRate(type, Number(overrides[type]));
+                  }}
+                  style={{
+                    padding: "5px 10px",
+                    background: "#f1f5f9",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 6,
+                    fontSize: "0.8rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  Set
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Pricing Rules */}
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 10,
+          padding: 20,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+        }}
+      >
+        <div style={{ fontWeight: 700, color: "#1a2744", marginBottom: 12 }}>
+          Pricing Rules
+        </div>
+        <div
+          style={{
+            display: "flex",
+            gap: 16,
+            flexWrap: "wrap",
+            alignItems: "flex-end",
+          }}
+        >
+          <div>
+            <div style={{ fontSize: "0.82rem", color: "#64748b" }}>
+              Weekend Markup %
+            </div>
+            <input
+              id="weekend-markup"
+              type="number"
+              data-ocid="dynamic_pricing.input"
+              value={weekendMarkup}
+              onChange={(e) => {
+                setWeekendMarkup(e.target.value);
+                saveRules(e.target.value, peakMarkup);
+              }}
+              style={{
+                display: "block",
+                padding: "6px 10px",
+                border: "1px solid #e2e8f0",
+                borderRadius: 6,
+                marginTop: 4,
+                width: 120,
+              }}
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: "0.82rem", color: "#64748b" }}>
+              Peak Season Markup %
+            </div>
+            <input
+              id="peak-markup"
+              type="number"
+              data-ocid="dynamic_pricing.input"
+              value={peakMarkup}
+              onChange={(e) => {
+                setPeakMarkup(e.target.value);
+                saveRules(weekendMarkup, e.target.value);
+              }}
+              style={{
+                display: "block",
+                padding: "6px 10px",
+                border: "1px solid #e2e8f0",
+                borderRadius: 6,
+                marginTop: 4,
+                width: 120,
+              }}
+            />
+          </div>
+          <div>
+            {saveMsg && (
+              <span
+                style={{
+                  color: "#16a34a",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
+                  marginRight: 10,
+                }}
+              >
+                {saveMsg}
+              </span>
+            )}
+            <div
+              style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: 4 }}
+            >
+              Rules auto-save on change. Suggested rates update instantly.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RateCalendarSection() {
+  const today = new Date();
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth());
+  const [overrides, setOverrides] = useState<Record<string, number>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("kdm_rate_calendar") || "{}");
+    } catch {
+      return {};
+    }
+  });
+  const [editDate, setEditDate] = useState<string | null>(null);
+  const [editVal, setEditVal] = useState("");
+
+  const baseRates: Record<string, number> = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("kdm_dynamic_rates") || "{}");
+    } catch {
+      return {};
+    }
+  })();
+  const defaultBase = baseRates.Executive || 2500;
+
+  const monthNames = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay = new Date(year, month, 1).getDay();
+
+  const getRate = (d: number) => {
+    const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    return overrides[key] ?? defaultBase;
+  };
+
+  const saveRate = () => {
+    if (!editDate || !editVal) return;
+    const updated = { ...overrides, [editDate]: Number(editVal) };
+    setOverrides(updated);
+    localStorage.setItem("kdm_rate_calendar", JSON.stringify(updated));
+    setEditDate(null);
+  };
+
+  const getRateColor = (rate: number) =>
+    rate < defaultBase
+      ? "#22c55e"
+      : rate === defaultBase
+        ? "#f59e0b"
+        : "#ef4444";
+
+  return (
+    <div>
+      <SectionTitle title="Rate Calendar" sub="Manage day-wise room rates" />
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 10,
+          padding: 20,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            marginBottom: 16,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              if (month === 0) {
+                setMonth(11);
+                setYear((y) => y - 1);
+              } else setMonth((m) => m - 1);
+            }}
+            style={{
+              padding: "6px 14px",
+              border: "1px solid #e2e8f0",
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
+          >
+            ‹ Prev
+          </button>
+          <span
+            style={{
+              fontWeight: 700,
+              fontSize: "1rem",
+              color: "#1a2744",
+              minWidth: 160,
+              textAlign: "center",
+            }}
+          >
+            {monthNames[month]} {year}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              if (month === 11) {
+                setMonth(0);
+                setYear((y) => y + 1);
+              } else setMonth((m) => m + 1);
+            }}
+            style={{
+              padding: "6px 14px",
+              border: "1px solid #e2e8f0",
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
+          >
+            Next ›
+          </button>
+          <span
+            style={{ fontSize: "0.8rem", color: "#64748b", marginLeft: 16 }}
+          >
+            <span style={{ color: "#22c55e" }}>■</span> Below Base &nbsp;
+            <span style={{ color: "#f59e0b" }}>■</span> Base Rate &nbsp;
+            <span style={{ color: "#ef4444" }}>■</span> Peak Rate
+          </span>
+        </div>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(7, 1fr)",
+            gap: 4,
+          }}
+        >
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+            <div
+              key={d}
+              style={{
+                textAlign: "center",
+                fontWeight: 700,
+                color: "#64748b",
+                fontSize: "0.75rem",
+                padding: "4px 0",
+              }}
+            >
+              {d}
+            </div>
+          ))}
+          {Array.from({ length: firstDay }, (_, i) => i).map((idx) => (
+            <div key={`empty-${idx}`} />
+          ))}
+          {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((d) => {
+            const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+            const rate = getRate(d);
+            return (
+              <button
+                type="button"
+                key={d}
+                onClick={() => {
+                  setEditDate(key);
+                  setEditVal(String(rate));
+                }}
+                style={{
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 6,
+                  padding: "6px 4px",
+                  textAlign: "center",
+                  cursor: "pointer",
+                  background: "#fafafa",
+                  width: "100%",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                    color: "#1a2744",
+                  }}
+                >
+                  {d}
+                </div>
+                <div
+                  style={{
+                    fontSize: "0.7rem",
+                    color: getRateColor(rate),
+                    fontWeight: 700,
+                  }}
+                >
+                  ₹{rate.toLocaleString("en-IN")}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      {editDate && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            zIndex: 999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              padding: 24,
+              width: 320,
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: 12 }}>
+              Set Rate for {editDate}
+            </div>
+            <input
+              type="number"
+              value={editVal}
+              onChange={(e) => setEditVal(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "8px 10px",
+                border: "1px solid #e2e8f0",
+                borderRadius: 6,
+                marginBottom: 12,
+              }}
+            />
+            <div
+              style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}
+            >
+              <button
+                type="button"
+                onClick={() => setEditDate(null)}
+                style={{
+                  padding: "7px 16px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveRate}
+                style={{
+                  padding: "7px 16px",
+                  background: "linear-gradient(90deg,#1a2744,#1e40af)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OTARateSyncSection() {
+  const OTA_CHANNELS = [
+    "MakeMyTrip",
+    "Booking.com",
+    "Goibibo",
+    "Expedia",
+    "Agoda",
+  ];
+  const [otaData, setOtaData] = useState<
+    Record<string, { markup: number; lastSync: string }>
+  >(() => {
+    try {
+      return JSON.parse(localStorage.getItem("kdm_ota_rates") || "{}");
+    } catch {
+      return {};
+    }
+  });
+  const [markupInputs, setMarkupInputs] = useState<Record<string, string>>({});
+  const baseRate = 2500;
+
+  const getMarkup = (ch: string) => otaData[ch]?.markup ?? 10;
+  const getSync = (ch: string) => otaData[ch]?.lastSync ?? "Never";
+
+  const applyMarkup = (ch: string) => {
+    const val = Number(markupInputs[ch] ?? getMarkup(ch));
+    const updated = {
+      ...otaData,
+      [ch]: { markup: val, lastSync: otaData[ch]?.lastSync ?? "Never" },
+    };
+    setOtaData(updated);
+    localStorage.setItem("kdm_ota_rates", JSON.stringify(updated));
+    setMarkupInputs((p) => ({ ...p, [ch]: "" }));
+  };
+
+  const syncAll = () => {
+    const now = new Date().toLocaleString("en-IN");
+    const updated = { ...otaData };
+    for (const ch of OTA_CHANNELS) {
+      updated[ch] = { markup: updated[ch]?.markup ?? 10, lastSync: now };
+    }
+    setOtaData(updated);
+    localStorage.setItem("kdm_ota_rates", JSON.stringify(updated));
+    alert(`All channels synced at ${now}`);
+  };
+
+  return (
+    <div>
+      <SectionTitle
+        title="OTA Rate Sync"
+        sub="Manage rates across booking channels"
+      />
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 10,
+          padding: 20,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            marginBottom: 16,
+          }}
+        >
+          <button
+            type="button"
+            onClick={syncAll}
+            style={{
+              padding: "8px 18px",
+              background: "linear-gradient(90deg,#1a2744,#1e40af)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+              fontWeight: 600,
+            }}
+          >
+            🔄 Sync All Channels
+          </button>
+        </div>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr
+              style={{
+                background: "linear-gradient(90deg,#1a2744,#1e40af)",
+                color: "#fff",
+              }}
+            >
+              {[
+                "Channel",
+                "Base Rate",
+                "Markup %",
+                "Effective Rate",
+                "Last Synced",
+                "Action",
+              ].map((h) => (
+                <th
+                  key={h}
+                  style={{
+                    padding: "10px 12px",
+                    textAlign: "left",
+                    fontSize: "0.82rem",
+                  }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {OTA_CHANNELS.map((ch, i) => {
+              const markup = getMarkup(ch);
+              const effective = Math.round(baseRate * (1 + markup / 100));
+              return (
+                <tr
+                  key={ch}
+                  style={{ background: i % 2 === 0 ? "#f8fafc" : "#fff" }}
+                >
+                  <td style={{ padding: "10px 12px", fontWeight: 600 }}>
+                    {ch}
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    ₹{baseRate.toLocaleString("en-IN")}
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px 12px",
+                      color: "#1e40af",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {markup}%
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px 12px",
+                      color: "#16a34a",
+                      fontWeight: 700,
+                    }}
+                  >
+                    ₹{effective.toLocaleString("en-IN")}
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px 12px",
+                      fontSize: "0.78rem",
+                      color: "#64748b",
+                    }}
+                  >
+                    {getSync(ch)}
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <input
+                        type="number"
+                        placeholder={String(markup)}
+                        value={markupInputs[ch] || ""}
+                        onChange={(e) =>
+                          setMarkupInputs((p) => ({
+                            ...p,
+                            [ch]: e.target.value,
+                          }))
+                        }
+                        style={{
+                          width: 70,
+                          padding: "5px 8px",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: 6,
+                          fontSize: "0.8rem",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => applyMarkup(ch)}
+                        style={{
+                          padding: "5px 12px",
+                          background: "#1e40af",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: 6,
+                          cursor: "pointer",
+                          fontSize: "0.8rem",
+                        }}
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── OPERATIONS SECTIONS ─────────────────────────────────────────────────────
+
+function InventoryStockSection() {
+  type InventoryItem = {
+    id: number;
+    name: string;
+    category: string;
+    unit: string;
+    stock: number;
+    reorder: number;
+  };
+  const CATEGORIES = [
+    "All",
+    "Linen & Bedding",
+    "Toiletries",
+    "F&B Supplies",
+    "Maintenance",
+    "Stationery",
+  ];
+  const DEFAULT_ITEMS: InventoryItem[] = [
+    {
+      id: 1,
+      name: "Bed Sheets (White)",
+      category: "Linen & Bedding",
+      unit: "pcs",
+      stock: 120,
+      reorder: 30,
+    },
+    {
+      id: 2,
+      name: "Pillow Covers",
+      category: "Linen & Bedding",
+      unit: "pcs",
+      stock: 80,
+      reorder: 20,
+    },
+    {
+      id: 3,
+      name: "Shampoo (50ml)",
+      category: "Toiletries",
+      unit: "bottles",
+      stock: 5,
+      reorder: 50,
+    },
+    {
+      id: 4,
+      name: "Soap Bar",
+      category: "Toiletries",
+      unit: "pcs",
+      stock: 200,
+      reorder: 100,
+    },
+    {
+      id: 5,
+      name: "Rice (Basmati)",
+      category: "F&B Supplies",
+      unit: "kg",
+      stock: 0,
+      reorder: 10,
+    },
+    {
+      id: 6,
+      name: "Cooking Oil",
+      category: "F&B Supplies",
+      unit: "litres",
+      stock: 15,
+      reorder: 5,
+    },
+    {
+      id: 7,
+      name: "Light Bulbs",
+      category: "Maintenance",
+      unit: "pcs",
+      stock: 8,
+      reorder: 10,
+    },
+    {
+      id: 8,
+      name: "A4 Paper",
+      category: "Stationery",
+      unit: "reams",
+      stock: 4,
+      reorder: 5,
+    },
+  ];
+  const [items, setItems] = useState<InventoryItem[]>(() => {
+    try {
+      return JSON.parse(
+        localStorage.getItem("kdm_inventory") || JSON.stringify(DEFAULT_ITEMS),
+      );
+    } catch {
+      return DEFAULT_ITEMS;
+    }
+  });
+  const [catFilter, setCatFilter] = useState("All");
+  const [showAdd, setShowAdd] = useState(false);
+  const [newItem, setNewItem] = useState({
+    name: "",
+    category: "Linen & Bedding",
+    unit: "pcs",
+    stock: "",
+    reorder: "",
+  });
+  const [editQty, setEditQty] = useState<Record<number, string>>({});
+
+  const save = (updated: InventoryItem[]) => {
+    setItems(updated);
+    localStorage.setItem("kdm_inventory", JSON.stringify(updated));
+  };
+
+  const getStatus = (item: InventoryItem) =>
+    item.stock <= 0 ? "Critical" : item.stock <= item.reorder ? "Low" : "OK";
+  const statusColor = (s: string) =>
+    s === "Critical" ? "#ef4444" : s === "Low" ? "#f59e0b" : "#22c55e";
+
+  const filtered =
+    catFilter === "All" ? items : items.filter((i) => i.category === catFilter);
+  const critical = items.filter((i) => getStatus(i) === "Critical").length;
+  const low = items.filter((i) => getStatus(i) === "Low").length;
+
+  return (
+    <div>
+      <SectionTitle
+        title="Inventory & Stock"
+        sub="Track supplies and reorder levels"
+      />
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 12,
+          marginBottom: 20,
+        }}
+      >
+        {[
+          { label: "Total Items", val: items.length, color: "#1e40af" },
+          { label: "Low Stock", val: low, color: "#f59e0b" },
+          { label: "Critical", val: critical, color: "#ef4444" },
+        ].map((s) => (
+          <div
+            key={s.label}
+            style={{
+              background: "#fff",
+              borderRadius: 10,
+              padding: 16,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              textAlign: "center",
+            }}
+          >
+            <div
+              style={{ fontSize: "1.8rem", fontWeight: 800, color: s.color }}
+            >
+              {s.val}
+            </div>
+            <div style={{ fontSize: "0.82rem", color: "#64748b" }}>
+              {s.label}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 10,
+          padding: 20,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            marginBottom: 16,
+            flexWrap: "wrap",
+            justifyContent: "space-between",
+          }}
+        >
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {CATEGORIES.map((c) => (
+              <button
+                type="button"
+                key={c}
+                onClick={() => setCatFilter(c)}
+                style={{
+                  padding: "5px 12px",
+                  borderRadius: 20,
+                  border: "1px solid #e2e8f0",
+                  cursor: "pointer",
+                  background: catFilter === c ? "#1e40af" : "#f8fafc",
+                  color: catFilter === c ? "#fff" : "#374151",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                }}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowAdd(true)}
+            style={{
+              padding: "7px 16px",
+              background: "linear-gradient(90deg,#1a2744,#1e40af)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
+          >
+            + Add Item
+          </button>
+        </div>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr
+              style={{
+                background: "linear-gradient(90deg,#1a2744,#1e40af)",
+                color: "#fff",
+              }}
+            >
+              {[
+                "Item Name",
+                "Category",
+                "Unit",
+                "In Stock",
+                "Reorder Level",
+                "Status",
+                "Action",
+              ].map((h) => (
+                <th
+                  key={h}
+                  style={{
+                    padding: "10px 12px",
+                    textAlign: "left",
+                    fontSize: "0.82rem",
+                  }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((item, i) => {
+              const status = getStatus(item);
+              return (
+                <tr
+                  key={item.id}
+                  style={{ background: i % 2 === 0 ? "#f8fafc" : "#fff" }}
+                >
+                  <td style={{ padding: "10px 12px", fontWeight: 600 }}>
+                    {item.name}
+                  </td>
+                  <td style={{ padding: "10px 12px", fontSize: "0.82rem" }}>
+                    {item.category}
+                  </td>
+                  <td style={{ padding: "10px 12px", fontSize: "0.82rem" }}>
+                    {item.unit}
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    <div
+                      style={{ display: "flex", gap: 6, alignItems: "center" }}
+                    >
+                      <input
+                        type="number"
+                        value={editQty[item.id] ?? item.stock}
+                        onChange={(e) =>
+                          setEditQty((p) => ({
+                            ...p,
+                            [item.id]: e.target.value,
+                          }))
+                        }
+                        style={{
+                          width: 70,
+                          padding: "4px 8px",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: 6,
+                          fontSize: "0.82rem",
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = items.map((x) =>
+                            x.id === item.id
+                              ? {
+                                  ...x,
+                                  stock: Number(editQty[item.id] ?? x.stock),
+                                }
+                              : x,
+                          );
+                          save(updated);
+                        }}
+                        style={{
+                          padding: "4px 10px",
+                          background: "#f1f5f9",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: 6,
+                          fontSize: "0.75rem",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>{item.reorder}</td>
+                  <td style={{ padding: "10px 12px" }}>
+                    <span
+                      style={{
+                        padding: "3px 10px",
+                        borderRadius: 20,
+                        background: `${statusColor(status)}20`,
+                        color: statusColor(status),
+                        fontWeight: 700,
+                        fontSize: "0.78rem",
+                      }}
+                    >
+                      {status}
+                    </span>
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        save(items.filter((x) => x.id !== item.id))
+                      }
+                      style={{
+                        padding: "4px 10px",
+                        background: "#fef2f2",
+                        color: "#ef4444",
+                        border: "1px solid #fca5a5",
+                        borderRadius: 6,
+                        fontSize: "0.75rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {showAdd && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            zIndex: 999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              padding: 24,
+              width: 380,
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: 16 }}>
+              Add Inventory Item
+            </div>
+            {[
+              ["Item Name", "name", "text"],
+              ["Unit", "unit", "text"],
+              ["In Stock", "stock", "number"],
+              ["Reorder Level", "reorder", "number"],
+            ].map(([label, key, type]) => (
+              <div key={key} style={{ marginBottom: 12 }}>
+                <div
+                  style={{
+                    fontSize: "0.82rem",
+                    color: "#64748b",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  {label}
+                </div>
+                <input
+                  type={type}
+                  value={(newItem as Record<string, string>)[key]}
+                  onChange={(e) =>
+                    setNewItem((p) => ({ ...p, [key]: e.target.value }))
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "7px 10px",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 6,
+                  }}
+                />
+              </div>
+            ))}
+            <div style={{ marginBottom: 12 }}>
+              <div
+                style={{
+                  fontSize: "0.82rem",
+                  color: "#64748b",
+                  display: "block",
+                  marginBottom: 4,
+                }}
+              >
+                Category
+              </div>
+              <select
+                value={newItem.category}
+                onChange={(e) =>
+                  setNewItem((p) => ({ ...p, category: e.target.value }))
+                }
+                style={{
+                  width: "100%",
+                  padding: "7px 10px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 6,
+                }}
+              >
+                {CATEGORIES.filter((c) => c !== "All").map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div
+              style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}
+            >
+              <button
+                type="button"
+                onClick={() => setShowAdd(false)}
+                style={{
+                  padding: "7px 16px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!newItem.name) return;
+                  const updated = [
+                    ...items,
+                    {
+                      id: Date.now(),
+                      name: newItem.name,
+                      category: newItem.category,
+                      unit: newItem.unit,
+                      stock: Number(newItem.stock),
+                      reorder: Number(newItem.reorder),
+                    },
+                  ];
+                  save(updated);
+                  setShowAdd(false);
+                  setNewItem({
+                    name: "",
+                    category: "Linen & Bedding",
+                    unit: "pcs",
+                    stock: "",
+                    reorder: "",
+                  });
+                }}
+                style={{
+                  padding: "7px 16px",
+                  background: "linear-gradient(90deg,#1a2744,#1e40af)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExpenseTrackerSection() {
+  type Expense = {
+    id: number;
+    date: string;
+    category: string;
+    description: string;
+    amount: number;
+    mode: string;
+  };
+  const CATEGORIES = [
+    "Utilities",
+    "Salaries",
+    "Maintenance",
+    "Supplies",
+    "Marketing",
+    "Other",
+  ];
+  const today = new Date();
+  const [filterMonth, setFilterMonth] = useState(today.getMonth());
+  const [filterYear, setFilterYear] = useState(today.getFullYear());
+  const [expenses, setExpenses] = useState<Expense[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("kdm_expenses") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({
+    date: today.toISOString().split("T")[0],
+    category: "Utilities",
+    description: "",
+    amount: "",
+    mode: "Cash",
+  });
+
+  const save = (updated: Expense[]) => {
+    setExpenses(updated);
+    localStorage.setItem("kdm_expenses", JSON.stringify(updated));
+  };
+
+  const filtered = expenses.filter((e) => {
+    const d = new Date(e.date);
+    return d.getMonth() === filterMonth && d.getFullYear() === filterYear;
+  });
+
+  const total = filtered.reduce((sum, e) => sum + e.amount, 0);
+  const byCategory = CATEGORIES.map((c) => ({
+    name: c,
+    amount: filtered
+      .filter((e) => e.category === c)
+      .reduce((s, e) => s + e.amount, 0),
+  })).filter((c) => c.amount > 0);
+
+  const monthNames = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+
+  return (
+    <div>
+      <SectionTitle title="Expense Tracker" sub="Monitor hotel expenditures" />
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 10,
+          padding: 20,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+          marginBottom: 16,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            marginBottom: 16,
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <select
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(Number(e.target.value))}
+              style={{
+                padding: "6px 10px",
+                border: "1px solid #e2e8f0",
+                borderRadius: 6,
+              }}
+            >
+              {monthNames.map((m, i) => (
+                <option key={m} value={i}>
+                  {m}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              value={filterYear}
+              onChange={(e) => setFilterYear(Number(e.target.value))}
+              style={{
+                width: 90,
+                padding: "6px 10px",
+                border: "1px solid #e2e8f0",
+                borderRadius: 6,
+              }}
+            />
+            <span style={{ fontWeight: 700, color: "#1e40af" }}>
+              Total: ₹{total.toLocaleString("en-IN")}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowAdd(true)}
+            style={{
+              padding: "7px 16px",
+              background: "linear-gradient(90deg,#1a2744,#1e40af)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
+          >
+            + Add Expense
+          </button>
+        </div>
+        {byCategory.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <ResponsiveContainer width="100%" height={160}>
+              <BarChart data={byCategory}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip />
+                <Bar dataKey="amount" fill="#1e40af" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr
+              style={{
+                background: "linear-gradient(90deg,#1a2744,#1e40af)",
+                color: "#fff",
+              }}
+            >
+              {[
+                "Date",
+                "Category",
+                "Description",
+                "Amount",
+                "Mode",
+                "Action",
+              ].map((h) => (
+                <th
+                  key={h}
+                  style={{
+                    padding: "10px 12px",
+                    textAlign: "left",
+                    fontSize: "0.82rem",
+                  }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={6}
+                  style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}
+                >
+                  No expenses this month
+                </td>
+              </tr>
+            ) : (
+              filtered.map((e, i) => (
+                <tr
+                  key={e.id}
+                  style={{ background: i % 2 === 0 ? "#f8fafc" : "#fff" }}
+                >
+                  <td style={{ padding: "10px 12px", fontSize: "0.82rem" }}>
+                    {e.date}
+                  </td>
+                  <td style={{ padding: "10px 12px", fontSize: "0.82rem" }}>
+                    {e.category}
+                  </td>
+                  <td style={{ padding: "10px 12px", fontSize: "0.82rem" }}>
+                    {e.description}
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px 12px",
+                      fontWeight: 700,
+                      color: "#1e40af",
+                    }}
+                  >
+                    ₹{e.amount.toLocaleString("en-IN")}
+                  </td>
+                  <td style={{ padding: "10px 12px", fontSize: "0.82rem" }}>
+                    {e.mode}
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        save(expenses.filter((x) => x.id !== e.id))
+                      }
+                      style={{
+                        padding: "4px 10px",
+                        background: "#fef2f2",
+                        color: "#ef4444",
+                        border: "1px solid #fca5a5",
+                        borderRadius: 6,
+                        fontSize: "0.75rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      {showAdd && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            zIndex: 999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              padding: 24,
+              width: 380,
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: 16 }}>Add Expense</div>
+            {[
+              ["Date", "date", "date"],
+              ["Description", "description", "text"],
+              ["Amount", "amount", "number"],
+            ].map(([label, key, type]) => (
+              <div key={key} style={{ marginBottom: 12 }}>
+                <div
+                  style={{
+                    fontSize: "0.82rem",
+                    color: "#64748b",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  {label}
+                </div>
+                <input
+                  type={type}
+                  value={(form as Record<string, string>)[key]}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, [key]: e.target.value }))
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "7px 10px",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 6,
+                  }}
+                />
+              </div>
+            ))}
+            {[
+              ["Category", "category", CATEGORIES],
+              [
+                "Payment Mode",
+                "mode",
+                ["Cash", "Card", "UPI", "Bank Transfer"],
+              ],
+            ].map(([label, key, opts]) => (
+              <div key={String(key)} style={{ marginBottom: 12 }}>
+                <div
+                  style={{
+                    fontSize: "0.82rem",
+                    color: "#64748b",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  {String(label)}
+                </div>
+                <select
+                  value={(form as Record<string, string>)[String(key)]}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, [String(key)]: e.target.value }))
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "7px 10px",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 6,
+                  }}
+                >
+                  {(opts as string[]).map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+            <div
+              style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}
+            >
+              <button
+                type="button"
+                onClick={() => setShowAdd(false)}
+                style={{
+                  padding: "7px 16px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!form.amount) return;
+                  save([
+                    ...expenses,
+                    {
+                      id: Date.now(),
+                      date: form.date,
+                      category: form.category,
+                      description: form.description,
+                      amount: Number(form.amount),
+                      mode: form.mode,
+                    },
+                  ]);
+                  setShowAdd(false);
+                }}
+                style={{
+                  padding: "7px 16px",
+                  background: "linear-gradient(90deg,#1a2744,#1e40af)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MaintenanceRequestsSection() {
+  type MaintReq = {
+    id: number;
+    room: string;
+    issueType: string;
+    priority: "High" | "Medium" | "Low";
+    assignedTo: string;
+    status: "Open" | "In Progress" | "Resolved";
+    createdDate: string;
+  };
+  const [requests, setRequests] = useState<MaintReq[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("kdm_maintenance") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({
+    room: "",
+    issueType: "Plumbing",
+    priority: "Medium" as "High" | "Medium" | "Low",
+    assignedTo: "",
+  });
+
+  const save = (updated: MaintReq[]) => {
+    setRequests(updated);
+    localStorage.setItem("kdm_maintenance", JSON.stringify(updated));
+  };
+
+  const priorityColor = (p: string) =>
+    p === "High" ? "#ef4444" : p === "Medium" ? "#f59e0b" : "#22c55e";
+  const statusColor = (s: string) =>
+    s === "Open" ? "#ef4444" : s === "In Progress" ? "#f59e0b" : "#22c55e";
+
+  const filtered =
+    statusFilter === "All"
+      ? requests
+      : requests.filter((r) => r.status === statusFilter);
+
+  return (
+    <div>
+      <SectionTitle
+        title="Maintenance Requests"
+        sub="Track and manage facility maintenance"
+      />
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 10,
+          padding: 20,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            marginBottom: 16,
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ display: "flex", gap: 6 }}>
+            {["All", "Open", "In Progress", "Resolved"].map((s) => (
+              <button
+                type="button"
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                style={{
+                  padding: "5px 12px",
+                  borderRadius: 20,
+                  border: "1px solid #e2e8f0",
+                  cursor: "pointer",
+                  background: statusFilter === s ? "#1e40af" : "#f8fafc",
+                  color: statusFilter === s ? "#fff" : "#374151",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowAdd(true)}
+            style={{
+              padding: "7px 16px",
+              background: "linear-gradient(90deg,#1a2744,#1e40af)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
+          >
+            + New Request
+          </button>
+        </div>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr
+              style={{
+                background: "linear-gradient(90deg,#1a2744,#1e40af)",
+                color: "#fff",
+              }}
+            >
+              {[
+                "ID",
+                "Room/Area",
+                "Issue Type",
+                "Priority",
+                "Assigned To",
+                "Status",
+                "Action",
+              ].map((h) => (
+                <th
+                  key={h}
+                  style={{
+                    padding: "10px 12px",
+                    textAlign: "left",
+                    fontSize: "0.82rem",
+                  }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={7}
+                  style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}
+                >
+                  No maintenance requests
+                </td>
+              </tr>
+            ) : (
+              filtered.map((r, i) => (
+                <tr
+                  key={r.id}
+                  style={{ background: i % 2 === 0 ? "#f8fafc" : "#fff" }}
+                >
+                  <td
+                    style={{
+                      padding: "10px 12px",
+                      fontSize: "0.78rem",
+                      color: "#64748b",
+                    }}
+                  >
+                    #{r.id}
+                  </td>
+                  <td style={{ padding: "10px 12px", fontWeight: 600 }}>
+                    {r.room}
+                  </td>
+                  <td style={{ padding: "10px 12px", fontSize: "0.82rem" }}>
+                    {r.issueType}
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    <span
+                      style={{
+                        padding: "3px 10px",
+                        borderRadius: 20,
+                        background: `${priorityColor(r.priority)}20`,
+                        color: priorityColor(r.priority),
+                        fontWeight: 700,
+                        fontSize: "0.78rem",
+                      }}
+                    >
+                      {r.priority}
+                    </span>
+                  </td>
+                  <td style={{ padding: "10px 12px", fontSize: "0.82rem" }}>
+                    {r.assignedTo || "—"}
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    <select
+                      value={r.status}
+                      onChange={(e) =>
+                        save(
+                          requests.map((x) =>
+                            x.id === r.id
+                              ? {
+                                  ...x,
+                                  status: e.target.value as
+                                    | "Open"
+                                    | "In Progress"
+                                    | "Resolved",
+                                }
+                              : x,
+                          ),
+                        )
+                      }
+                      style={{
+                        padding: "4px 8px",
+                        border: `1px solid ${statusColor(r.status)}`,
+                        borderRadius: 6,
+                        color: statusColor(r.status),
+                        fontWeight: 700,
+                        fontSize: "0.8rem",
+                        background: `${statusColor(r.status)}15`,
+                      }}
+                    >
+                      {["Open", "In Progress", "Resolved"].map((s) => (
+                        <option key={s}>{s}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        save(requests.filter((x) => x.id !== r.id))
+                      }
+                      style={{
+                        padding: "4px 10px",
+                        background: "#fef2f2",
+                        color: "#ef4444",
+                        border: "1px solid #fca5a5",
+                        borderRadius: 6,
+                        fontSize: "0.75rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      {showAdd && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            zIndex: 999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              padding: 24,
+              width: 380,
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: 16 }}>
+              New Maintenance Request
+            </div>
+            {[
+              ["Room/Area", "room", "text"],
+              ["Issue Type", "issueType", "text"],
+              ["Assigned To", "assignedTo", "text"],
+            ].map(([label, key, type]) => (
+              <div key={key} style={{ marginBottom: 12 }}>
+                <div
+                  style={{
+                    fontSize: "0.82rem",
+                    color: "#64748b",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  {label}
+                </div>
+                <input
+                  type={type}
+                  value={(form as Record<string, string>)[key]}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, [key]: e.target.value }))
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "7px 10px",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 6,
+                  }}
+                />
+              </div>
+            ))}
+            <div style={{ marginBottom: 12 }}>
+              <div
+                style={{
+                  fontSize: "0.82rem",
+                  color: "#64748b",
+                  display: "block",
+                  marginBottom: 4,
+                }}
+              >
+                Priority
+              </div>
+              <select
+                value={form.priority}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    priority: e.target.value as "High" | "Medium" | "Low",
+                  }))
+                }
+                style={{
+                  width: "100%",
+                  padding: "7px 10px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 6,
+                }}
+              >
+                {["High", "Medium", "Low"].map((o) => (
+                  <option key={o}>{o}</option>
+                ))}
+              </select>
+            </div>
+            <div
+              style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}
+            >
+              <button
+                type="button"
+                onClick={() => setShowAdd(false)}
+                style={{
+                  padding: "7px 16px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!form.room) return;
+                  save([
+                    ...requests,
+                    {
+                      id: Date.now(),
+                      room: form.room,
+                      issueType: form.issueType,
+                      priority: form.priority,
+                      assignedTo: form.assignedTo,
+                      status: "Open",
+                      createdDate: new Date().toISOString().split("T")[0],
+                    },
+                  ]);
+                  setShowAdd(false);
+                  setForm({
+                    room: "",
+                    issueType: "Plumbing",
+                    priority: "Medium",
+                    assignedTo: "",
+                  });
+                }}
+                style={{
+                  padding: "7px 16px",
+                  background: "linear-gradient(90deg,#1a2744,#1e40af)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── CRM & MARKETING SECTIONS ────────────────────────────────────────────────
+
+function LeadsManagementSection() {
+  type Lead = {
+    id: number;
+    name: string;
+    mobile: string;
+    email: string;
+    checkIn: string;
+    rooms: number;
+    source: string;
+    status: "New" | "Follow-up" | "Converted" | "Lost";
+    notes: string;
+  };
+  const STATUSES = ["New", "Follow-up", "Converted", "Lost"] as const;
+  const SOURCES = ["Walk-in", "Phone", "OTA", "Website", "Agent"];
+  const [leads, setLeads] = useState<Lead[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("kdm_leads") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({
+    name: "",
+    mobile: "",
+    email: "",
+    checkIn: "",
+    rooms: "1",
+    source: "Phone",
+    status: "New" as (typeof STATUSES)[number],
+    notes: "",
+  });
+
+  const save = (updated: Lead[]) => {
+    setLeads(updated);
+    localStorage.setItem("kdm_leads", JSON.stringify(updated));
+  };
+  const statusColor = (s: string) =>
+    ({
+      New: "#1e40af",
+      "Follow-up": "#f59e0b",
+      Converted: "#22c55e",
+      Lost: "#ef4444",
+    })[s] || "#64748b";
+
+  const filtered =
+    statusFilter === "All"
+      ? leads
+      : leads.filter((l) => l.status === statusFilter);
+
+  return (
+    <div>
+      <SectionTitle
+        title="Leads Management"
+        sub="Track potential guests and conversions"
+      />
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, 1fr)",
+          gap: 12,
+          marginBottom: 20,
+        }}
+      >
+        {STATUSES.map((s) => (
+          <button
+            type="button"
+            key={s}
+            onClick={() => setStatusFilter(s)}
+            style={{
+              background: "#fff",
+              borderRadius: 10,
+              padding: 16,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              textAlign: "center",
+              cursor: "pointer",
+              border:
+                statusFilter === s
+                  ? `2px solid ${statusColor(s)}`
+                  : "2px solid transparent",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "1.8rem",
+                fontWeight: 800,
+                color: statusColor(s),
+              }}
+            >
+              {leads.filter((l) => l.status === s).length}
+            </div>
+            <div style={{ fontSize: "0.82rem", color: "#64748b" }}>{s}</div>
+          </button>
+        ))}
+      </div>
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 10,
+          padding: 20,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            marginBottom: 16,
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ display: "flex", gap: 6 }}>
+            {["All", ...STATUSES].map((s) => (
+              <button
+                type="button"
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                style={{
+                  padding: "5px 12px",
+                  borderRadius: 20,
+                  border: "1px solid #e2e8f0",
+                  cursor: "pointer",
+                  background: statusFilter === s ? "#1e40af" : "#f8fafc",
+                  color: statusFilter === s ? "#fff" : "#374151",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                }}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowAdd(true)}
+            style={{
+              padding: "7px 16px",
+              background: "linear-gradient(90deg,#1a2744,#1e40af)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
+          >
+            + Add Lead
+          </button>
+        </div>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr
+              style={{
+                background: "linear-gradient(90deg,#1a2744,#1e40af)",
+                color: "#fff",
+              }}
+            >
+              {[
+                "Guest Name",
+                "Mobile",
+                "Email",
+                "Check-in",
+                "Rooms",
+                "Source",
+                "Status",
+                "Notes",
+                "Action",
+              ].map((h) => (
+                <th
+                  key={h}
+                  style={{
+                    padding: "10px 12px",
+                    textAlign: "left",
+                    fontSize: "0.82rem",
+                  }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={9}
+                  style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}
+                >
+                  No leads
+                </td>
+              </tr>
+            ) : (
+              filtered.map((l, i) => (
+                <tr
+                  key={l.id}
+                  style={{ background: i % 2 === 0 ? "#f8fafc" : "#fff" }}
+                >
+                  <td style={{ padding: "10px 12px", fontWeight: 600 }}>
+                    {l.name}
+                  </td>
+                  <td style={{ padding: "10px 12px", fontSize: "0.82rem" }}>
+                    {l.mobile}
+                  </td>
+                  <td style={{ padding: "10px 12px", fontSize: "0.8rem" }}>
+                    {l.email}
+                  </td>
+                  <td style={{ padding: "10px 12px", fontSize: "0.82rem" }}>
+                    {l.checkIn}
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>{l.rooms}</td>
+                  <td style={{ padding: "10px 12px", fontSize: "0.82rem" }}>
+                    {l.source}
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    <select
+                      value={l.status}
+                      onChange={(e) =>
+                        save(
+                          leads.map((x) =>
+                            x.id === l.id
+                              ? {
+                                  ...x,
+                                  status: e.target
+                                    .value as (typeof STATUSES)[number],
+                                }
+                              : x,
+                          ),
+                        )
+                      }
+                      style={{
+                        padding: "4px 8px",
+                        border: `1px solid ${statusColor(l.status)}`,
+                        borderRadius: 6,
+                        color: statusColor(l.status),
+                        fontWeight: 700,
+                        fontSize: "0.8rem",
+                        background: `${statusColor(l.status)}15`,
+                      }}
+                    >
+                      {STATUSES.map((s) => (
+                        <option key={s}>{s}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px 12px",
+                      fontSize: "0.78rem",
+                      color: "#64748b",
+                      maxWidth: 120,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {l.notes}
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    <button
+                      type="button"
+                      onClick={() => save(leads.filter((x) => x.id !== l.id))}
+                      style={{
+                        padding: "4px 10px",
+                        background: "#fef2f2",
+                        color: "#ef4444",
+                        border: "1px solid #fca5a5",
+                        borderRadius: 6,
+                        fontSize: "0.75rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      {showAdd && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            zIndex: 999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              padding: 24,
+              width: 420,
+              maxHeight: "90vh",
+              overflow: "auto",
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: 16 }}>
+              Add New Lead
+            </div>
+            {[
+              ["Guest Name", "name", "text"],
+              ["Mobile", "mobile", "tel"],
+              ["Email", "email", "email"],
+              ["Check-in Date", "checkIn", "date"],
+              ["Rooms Required", "rooms", "number"],
+            ].map(([label, key, type]) => (
+              <div key={key} style={{ marginBottom: 12 }}>
+                <div
+                  style={{
+                    fontSize: "0.82rem",
+                    color: "#64748b",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  {label}
+                </div>
+                <input
+                  type={type}
+                  value={(form as Record<string, string>)[key]}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, [key]: e.target.value }))
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "7px 10px",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 6,
+                  }}
+                />
+              </div>
+            ))}
+            {[
+              ["Source", "source", SOURCES],
+              ["Status", "status", [...STATUSES]],
+            ].map(([label, key, opts]) => (
+              <div key={String(key)} style={{ marginBottom: 12 }}>
+                <div
+                  style={{
+                    fontSize: "0.82rem",
+                    color: "#64748b",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  {String(label)}
+                </div>
+                <select
+                  value={(form as Record<string, string>)[String(key)]}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, [String(key)]: e.target.value }))
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "7px 10px",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 6,
+                  }}
+                >
+                  {(opts as string[]).map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+            <div style={{ marginBottom: 12 }}>
+              <div
+                style={{
+                  fontSize: "0.82rem",
+                  color: "#64748b",
+                  display: "block",
+                  marginBottom: 4,
+                }}
+              >
+                Notes
+              </div>
+              <textarea
+                value={form.notes}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, notes: e.target.value }))
+                }
+                style={{
+                  width: "100%",
+                  padding: "7px 10px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 6,
+                  resize: "vertical",
+                  minHeight: 60,
+                }}
+              />
+            </div>
+            <div
+              style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}
+            >
+              <button
+                type="button"
+                onClick={() => setShowAdd(false)}
+                style={{
+                  padding: "7px 16px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!form.name) return;
+                  save([
+                    ...leads,
+                    {
+                      id: Date.now(),
+                      name: form.name,
+                      mobile: form.mobile,
+                      email: form.email,
+                      checkIn: form.checkIn,
+                      rooms: Number(form.rooms),
+                      source: form.source,
+                      status: form.status,
+                      notes: form.notes,
+                    },
+                  ]);
+                  setShowAdd(false);
+                  setForm({
+                    name: "",
+                    mobile: "",
+                    email: "",
+                    checkIn: "",
+                    rooms: "1",
+                    source: "Phone",
+                    status: "New",
+                    notes: "",
+                  });
+                }}
+                style={{
+                  padding: "7px 16px",
+                  background: "linear-gradient(90deg,#1a2744,#1e40af)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                Add Lead
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LoyaltyProgramSection() {
+  type LoyaltyGuest = {
+    id: number;
+    name: string;
+    mobile: string;
+    totalPoints: number;
+    redeemedPoints: number;
+  };
+  const [guests, setGuests] = useState<LoyaltyGuest[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("kdm_loyalty") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [showAward, setShowAward] = useState(false);
+  const [awardForm, setAwardForm] = useState({
+    mobile: "",
+    points: "",
+    reason: "",
+  });
+  const [foundGuest, setFoundGuest] = useState<LoyaltyGuest | null>(null);
+
+  const save = (updated: LoyaltyGuest[]) => {
+    setGuests(updated);
+    localStorage.setItem("kdm_loyalty", JSON.stringify(updated));
+  };
+
+  const getTier = (balance: number) =>
+    balance < 500 ? "Silver" : balance < 2000 ? "Gold" : "Platinum";
+  const tierColor = (t: string) =>
+    t === "Silver" ? "#94a3b8" : t === "Gold" ? "#f59e0b" : "#818cf8";
+
+  const searchGuest = () => {
+    const g = guests.find((x) => x.mobile === awardForm.mobile);
+    setFoundGuest(g || null);
+  };
+
+  const awardPoints = () => {
+    if (!foundGuest || !awardForm.points) return;
+    const updated = guests.map((g) =>
+      g.id === foundGuest.id
+        ? { ...g, totalPoints: g.totalPoints + Number(awardForm.points) }
+        : g,
+    );
+    save(updated);
+    setShowAward(false);
+    setAwardForm({ mobile: "", points: "", reason: "" });
+    setFoundGuest(null);
+  };
+
+  const redeemPoints = (id: number, pts: number) => {
+    const g = guests.find((x) => x.id === id);
+    if (!g) return;
+    const balance = g.totalPoints - g.redeemedPoints;
+    if (pts > balance) return alert("Insufficient balance");
+    save(
+      guests.map((x) =>
+        x.id === id ? { ...x, redeemedPoints: x.redeemedPoints + pts } : x,
+      ),
+    );
+  };
+
+  return (
+    <div>
+      <SectionTitle title="Loyalty Program" sub="Reward your repeat guests" />
+      {guests.length === 0 ? (
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: 10,
+            padding: 40,
+            textAlign: "center",
+            color: "#94a3b8",
+          }}
+        >
+          <div style={{ fontSize: "3rem", marginBottom: 8 }}>🎁</div>
+          <div style={{ fontWeight: 600, marginBottom: 8 }}>
+            No loyalty members yet
+          </div>
+          <div style={{ fontSize: "0.82rem" }}>
+            Members are added when points are awarded manually
+          </div>
+        </div>
+      ) : (
+        <div
+          style={{
+            background: "#fff",
+            borderRadius: 10,
+            padding: 20,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginBottom: 16,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setShowAward(true)}
+              style={{
+                padding: "7px 16px",
+                background: "linear-gradient(90deg,#1a2744,#1e40af)",
+                color: "#fff",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
+              }}
+            >
+              🏅 Award Points
+            </button>
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr
+                style={{
+                  background: "linear-gradient(90deg,#1a2744,#1e40af)",
+                  color: "#fff",
+                }}
+              >
+                {[
+                  "Guest Name",
+                  "Mobile",
+                  "Total Points",
+                  "Redeemed",
+                  "Balance",
+                  "Tier",
+                  "Action",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      padding: "10px 12px",
+                      textAlign: "left",
+                      fontSize: "0.82rem",
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {guests.map((g, i) => {
+                const balance = g.totalPoints - g.redeemedPoints;
+                const tier = getTier(balance);
+                return (
+                  <tr
+                    key={g.id}
+                    style={{ background: i % 2 === 0 ? "#f8fafc" : "#fff" }}
+                  >
+                    <td style={{ padding: "10px 12px", fontWeight: 600 }}>
+                      {g.name}
+                    </td>
+                    <td style={{ padding: "10px 12px", fontSize: "0.82rem" }}>
+                      {g.mobile}
+                    </td>
+                    <td
+                      style={{
+                        padding: "10px 12px",
+                        color: "#1e40af",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {g.totalPoints}
+                    </td>
+                    <td style={{ padding: "10px 12px", color: "#ef4444" }}>
+                      {g.redeemedPoints}
+                    </td>
+                    <td
+                      style={{
+                        padding: "10px 12px",
+                        fontWeight: 700,
+                        color: "#16a34a",
+                      }}
+                    >
+                      {balance}
+                    </td>
+                    <td style={{ padding: "10px 12px" }}>
+                      <span
+                        style={{
+                          padding: "3px 10px",
+                          borderRadius: 20,
+                          background: `${tierColor(tier)}20`,
+                          color: tierColor(tier),
+                          fontWeight: 700,
+                          fontSize: "0.78rem",
+                        }}
+                      >
+                        {tier}
+                      </span>
+                    </td>
+                    <td style={{ padding: "10px 12px" }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const pts = Number(prompt("Redeem how many points?"));
+                          if (pts > 0) redeemPoints(g.id, pts);
+                        }}
+                        style={{
+                          padding: "4px 10px",
+                          background: "#fef3c7",
+                          color: "#d97706",
+                          border: "1px solid #fcd34d",
+                          borderRadius: 6,
+                          fontSize: "0.75rem",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Redeem
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div style={{ marginTop: 12 }}>
+        <button
+          type="button"
+          onClick={() => setShowAward(true)}
+          style={{
+            padding: "8px 18px",
+            background: "linear-gradient(90deg,#1a2744,#1e40af)",
+            color: "#fff",
+            border: "none",
+            borderRadius: 6,
+            cursor: "pointer",
+          }}
+        >
+          🏅 Award Points to Guest
+        </button>
+      </div>
+      {showAward && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            zIndex: 999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              padding: 24,
+              width: 360,
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: 16 }}>
+              Award Loyalty Points
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <div
+                style={{
+                  fontSize: "0.82rem",
+                  color: "#64748b",
+                  display: "block",
+                  marginBottom: 4,
+                }}
+              >
+                Guest Mobile Number
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  type="tel"
+                  value={awardForm.mobile}
+                  onChange={(e) =>
+                    setAwardForm((p) => ({ ...p, mobile: e.target.value }))
+                  }
+                  style={{
+                    flex: 1,
+                    padding: "7px 10px",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 6,
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={searchGuest}
+                  style={{
+                    padding: "7px 12px",
+                    background: "#f1f5f9",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                  }}
+                >
+                  Search
+                </button>
+              </div>
+              {foundGuest && (
+                <div
+                  style={{
+                    marginTop: 6,
+                    padding: "6px 10px",
+                    background: "#f0fdf4",
+                    borderRadius: 6,
+                    fontSize: "0.82rem",
+                    color: "#16a34a",
+                  }}
+                >
+                  ✓ Found: {foundGuest.name} (Balance:{" "}
+                  {foundGuest.totalPoints - foundGuest.redeemedPoints} pts)
+                </div>
+              )}
+              {awardForm.mobile && !foundGuest && (
+                <div
+                  style={{
+                    marginTop: 6,
+                    padding: "6px 10px",
+                    background: "#fef2f2",
+                    borderRadius: 6,
+                    fontSize: "0.82rem",
+                    color: "#ef4444",
+                  }}
+                >
+                  Guest not found — will create new member
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newG = {
+                        id: Date.now(),
+                        name: "Guest",
+                        mobile: awardForm.mobile,
+                        totalPoints: 0,
+                        redeemedPoints: 0,
+                      };
+                      save([...guests, newG]);
+                      setFoundGuest(newG);
+                    }}
+                    style={{
+                      marginLeft: 8,
+                      padding: "2px 8px",
+                      background: "#1e40af",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 4,
+                      cursor: "pointer",
+                      fontSize: "0.75rem",
+                    }}
+                  >
+                    Create
+                  </button>
+                </div>
+              )}
+            </div>
+            {[
+              ["Points to Award", "points", "number"],
+              ["Reason", "reason", "text"],
+            ].map(([label, key, type]) => (
+              <div key={key} style={{ marginBottom: 12 }}>
+                <div
+                  style={{
+                    fontSize: "0.82rem",
+                    color: "#64748b",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  {label}
+                </div>
+                <input
+                  type={type}
+                  value={(awardForm as Record<string, string>)[key]}
+                  onChange={(e) =>
+                    setAwardForm((p) => ({ ...p, [key]: e.target.value }))
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "7px 10px",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 6,
+                  }}
+                />
+              </div>
+            ))}
+            <div
+              style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAward(false);
+                  setFoundGuest(null);
+                }}
+                style={{
+                  padding: "7px 16px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={awardPoints}
+                style={{
+                  padding: "7px 16px",
+                  background: "linear-gradient(90deg,#1a2744,#1e40af)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                Award
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReviewsReputationSection() {
+  type Review = {
+    id: number;
+    platform: string;
+    guestName: string;
+    rating: number;
+    text: string;
+    date: string;
+    response: string;
+    responded: boolean;
+  };
+  const PLATFORMS = [
+    "Google",
+    "MakeMyTrip",
+    "Booking.com",
+    "TripAdvisor",
+    "Agoda",
+    "Direct",
+  ];
+  const [reviews, setReviews] = useState<Review[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("kdm_reviews_reputation") || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [platFilter, setPlatFilter] = useState("All");
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({
+    platform: "Google",
+    guestName: "",
+    rating: "5",
+    text: "",
+    date: new Date().toISOString().split("T")[0],
+  });
+  const [responseText, setResponseText] = useState<Record<number, string>>({});
+
+  const save = (updated: Review[]) => {
+    setReviews(updated);
+    localStorage.setItem("kdm_reviews_reputation", JSON.stringify(updated));
+  };
+
+  const platformAvg = (p: string) => {
+    const pr = reviews.filter((r) => r.platform === p);
+    if (!pr.length) return 0;
+    return pr.reduce((s, r) => s + r.rating, 0) / pr.length;
+  };
+  const overallAvg = reviews.length
+    ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
+    : 0;
+
+  const filtered =
+    platFilter === "All"
+      ? reviews
+      : reviews.filter((r) => r.platform === platFilter);
+
+  const stars = (n: number) =>
+    "★".repeat(Math.round(n)) + "☆".repeat(5 - Math.round(n));
+
+  return (
+    <div>
+      <SectionTitle
+        title="Reviews & Reputation"
+        sub="Monitor guest feedback across platforms"
+      />
+      <div
+        style={{
+          background: "linear-gradient(135deg,#1a2744,#1e40af)",
+          borderRadius: 12,
+          padding: 24,
+          marginBottom: 20,
+          color: "#fff",
+          display: "flex",
+          alignItems: "center",
+          gap: 24,
+        }}
+      >
+        <div>
+          <div style={{ fontSize: "3.5rem", fontWeight: 800, lineHeight: 1 }}>
+            {overallAvg.toFixed(1)}
+          </div>
+          <div style={{ color: "#fbbf24", fontSize: "1.5rem" }}>
+            {stars(overallAvg)}
+          </div>
+          <div style={{ fontSize: "0.82rem", opacity: 0.8, marginTop: 4 }}>
+            Overall Reputation Score ({reviews.length} reviews)
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          {PLATFORMS.map((p) => {
+            const avg = platformAvg(p);
+            const cnt = reviews.filter((r) => r.platform === p).length;
+            return (
+              <div
+                key={p}
+                style={{
+                  background: "rgba(255,255,255,0.12)",
+                  borderRadius: 8,
+                  padding: "10px 14px",
+                  textAlign: "center",
+                  minWidth: 90,
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: 700,
+                    fontSize: "1.1rem",
+                    color: "#fbbf24",
+                  }}
+                >
+                  {avg ? avg.toFixed(1) : "—"}
+                </div>
+                <div style={{ fontSize: "0.75rem", opacity: 0.85 }}>{p}</div>
+                <div style={{ fontSize: "0.7rem", opacity: 0.7 }}>
+                  {cnt} reviews
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 10,
+          padding: 20,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            marginBottom: 16,
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+          }}
+        >
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {["All", ...PLATFORMS].map((p) => (
+              <button
+                type="button"
+                key={p}
+                onClick={() => setPlatFilter(p)}
+                style={{
+                  padding: "5px 12px",
+                  borderRadius: 20,
+                  border: "1px solid #e2e8f0",
+                  cursor: "pointer",
+                  background: platFilter === p ? "#1e40af" : "#f8fafc",
+                  color: platFilter === p ? "#fff" : "#374151",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                }}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowAdd(true)}
+            style={{
+              padding: "7px 16px",
+              background: "linear-gradient(90deg,#1a2744,#1e40af)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              cursor: "pointer",
+            }}
+          >
+            + Add Review
+          </button>
+        </div>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr
+              style={{
+                background: "linear-gradient(90deg,#1a2744,#1e40af)",
+                color: "#fff",
+              }}
+            >
+              {[
+                "Platform",
+                "Guest",
+                "Rating",
+                "Review",
+                "Date",
+                "Response",
+                "Action",
+              ].map((h) => (
+                <th
+                  key={h}
+                  style={{
+                    padding: "10px 12px",
+                    textAlign: "left",
+                    fontSize: "0.82rem",
+                  }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={7}
+                  style={{ padding: 24, textAlign: "center", color: "#94a3b8" }}
+                >
+                  No reviews yet
+                </td>
+              </tr>
+            ) : (
+              filtered.map((r, i) => (
+                <tr
+                  key={r.id}
+                  style={{ background: i % 2 === 0 ? "#f8fafc" : "#fff" }}
+                >
+                  <td
+                    style={{
+                      padding: "10px 12px",
+                      fontWeight: 600,
+                      fontSize: "0.82rem",
+                    }}
+                  >
+                    {r.platform}
+                  </td>
+                  <td style={{ padding: "10px 12px", fontSize: "0.82rem" }}>
+                    {r.guestName}
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px 12px",
+                      color: "#f59e0b",
+                      fontWeight: 700,
+                    }}
+                  >
+                    {stars(r.rating)} {r.rating}
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px 12px",
+                      fontSize: "0.78rem",
+                      maxWidth: 200,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {r.text}
+                  </td>
+                  <td
+                    style={{
+                      padding: "10px 12px",
+                      fontSize: "0.78rem",
+                      color: "#64748b",
+                    }}
+                  >
+                    {r.date}
+                  </td>
+                  <td style={{ padding: "10px 12px", minWidth: 180 }}>
+                    {r.responded ? (
+                      <span style={{ fontSize: "0.78rem", color: "#22c55e" }}>
+                        ✓ Replied
+                      </span>
+                    ) : (
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <input
+                          type="text"
+                          placeholder="Write reply..."
+                          value={responseText[r.id] || r.response}
+                          onChange={(e) =>
+                            setResponseText((p) => ({
+                              ...p,
+                              [r.id]: e.target.value,
+                            }))
+                          }
+                          style={{
+                            flex: 1,
+                            padding: "4px 8px",
+                            border: "1px solid #e2e8f0",
+                            borderRadius: 6,
+                            fontSize: "0.78rem",
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            save(
+                              reviews.map((x) =>
+                                x.id === r.id
+                                  ? {
+                                      ...x,
+                                      response: responseText[r.id] || "",
+                                      responded: true,
+                                    }
+                                  : x,
+                              ),
+                            );
+                          }}
+                          style={{
+                            padding: "4px 8px",
+                            background: "#1e40af",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: 6,
+                            fontSize: "0.75rem",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Send
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ padding: "10px 12px" }}>
+                    <button
+                      type="button"
+                      onClick={() => save(reviews.filter((x) => x.id !== r.id))}
+                      style={{
+                        padding: "4px 10px",
+                        background: "#fef2f2",
+                        color: "#ef4444",
+                        border: "1px solid #fca5a5",
+                        borderRadius: 6,
+                        fontSize: "0.75rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      {showAdd && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            zIndex: 999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              padding: 24,
+              width: 400,
+            }}
+          >
+            <div style={{ fontWeight: 700, marginBottom: 16 }}>Add Review</div>
+            {[
+              ["Guest Name", "guestName", "text"],
+              ["Review Text", "text", "text"],
+              ["Date", "date", "date"],
+            ].map(([label, key, type]) => (
+              <div key={key} style={{ marginBottom: 12 }}>
+                <div
+                  style={{
+                    fontSize: "0.82rem",
+                    color: "#64748b",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  {label}
+                </div>
+                <input
+                  type={type}
+                  value={(form as Record<string, string>)[key]}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, [key]: e.target.value }))
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "7px 10px",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 6,
+                  }}
+                />
+              </div>
+            ))}
+            {[
+              ["Platform", "platform", PLATFORMS],
+              ["Rating", "rating", ["1", "2", "3", "4", "5"]],
+            ].map(([label, key, opts]) => (
+              <div key={String(key)} style={{ marginBottom: 12 }}>
+                <div
+                  style={{
+                    fontSize: "0.82rem",
+                    color: "#64748b",
+                    display: "block",
+                    marginBottom: 4,
+                  }}
+                >
+                  {String(label)}
+                </div>
+                <select
+                  value={(form as Record<string, string>)[String(key)]}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, [String(key)]: e.target.value }))
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "7px 10px",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: 6,
+                  }}
+                >
+                  {(opts as string[]).map((o) => (
+                    <option key={o}>{o}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+            <div
+              style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}
+            >
+              <button
+                type="button"
+                onClick={() => setShowAdd(false)}
+                style={{
+                  padding: "7px 16px",
+                  border: "1px solid #e2e8f0",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!form.guestName) return;
+                  save([
+                    ...reviews,
+                    {
+                      id: Date.now(),
+                      platform: form.platform,
+                      guestName: form.guestName,
+                      rating: Number(form.rating),
+                      text: form.text,
+                      date: form.date,
+                      response: "",
+                      responded: false,
+                    },
+                  ]);
+                  setShowAdd(false);
+                  setForm({
+                    platform: "Google",
+                    guestName: "",
+                    rating: "5",
+                    text: "",
+                    date: new Date().toISOString().split("T")[0],
+                  });
+                }}
+                style={{
+                  padding: "7px 16px",
+                  background: "linear-gradient(90deg,#1a2744,#1e40af)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DayEndSummarySection() {
+  const today = new Date().toISOString().split("T")[0];
+  const [date, setDate] = useState(today);
+
+  const tryParse = (s: string | null): any[] => {
+    try {
+      return s ? JSON.parse(s) : [];
+    } catch {
+      return [];
+    }
+  };
+  const restaurantBills: any[] = [
+    ...tryParse(localStorage.getItem("hotelRestaurantBills")),
+    ...tryParse(localStorage.getItem("kdm_restaurant_bills")),
+  ];
+  const roomFoodOrders: any[] = [
+    ...tryParse(localStorage.getItem("hotelRoomFoodOrders")),
+    ...tryParse(localStorage.getItem("kdm_room_food_orders")),
+  ];
+  const checkIns: any[] = JSON.parse(
+    localStorage.getItem("hotelCheckIns") || "[]",
+  );
+
+  const dayRestBills = restaurantBills.filter((b: any) => {
+    const d = b.date || b.createdAt?.split("T")[0] || "";
+    return d === date;
+  });
+  const dayRoomFood = roomFoodOrders.filter((o: any) => {
+    const d = o.date || o.createdAt?.split("T")[0] || "";
+    return d === date;
+  });
+  const dayCheckouts = checkIns.filter((g: any) => {
+    const d = g.checkOutDate || g.checkOut || "";
+    return d === date;
+  });
+
+  const restTotal = dayRestBills.reduce(
+    (s: number, b: any) => s + Number(b.total || b.amount || 0),
+    0,
+  );
+  const restGst = dayRestBills.reduce(
+    (s: number, b: any) => s + Number(b.gst || b.tax || 0),
+    0,
+  );
+  const foodTotal = dayRoomFood.reduce(
+    (s: number, o: any) => s + Number(o.total || o.amount || 0),
+    0,
+  );
+  const foodGst = Math.round(foodTotal * 0.05 * 100) / 100;
+  const roomTotal = dayCheckouts.reduce(
+    (s: number, g: any) =>
+      s + Number(g.nights || 1) * Number(g.roomRate || g.rate || 0),
+    0,
+  );
+  const roomGst = Math.round(roomTotal * 0.12 * 100) / 100;
+  const totalRevenue = restTotal + foodTotal + roomTotal;
+  const totalGst = restGst + foodGst + roomGst;
+  const totalBills =
+    dayRestBills.length + dayRoomFood.length + dayCheckouts.length;
+  const totalGuests = new Set(dayCheckouts.map((g: any) => g.id || g.name))
+    .size;
+
+  const PAYMENT_MODES = [
+    "Cash",
+    "Card",
+    "UPI",
+    "Online",
+    "Settle to Room",
+    "Other",
+  ];
+
+  function getCashierData() {
+    const data: Record<string, { room: number; food: number; rest: number }> =
+      {};
+    for (const m of PAYMENT_MODES) data[m] = { room: 0, food: 0, rest: 0 };
+    for (const g of dayCheckouts) {
+      const m = PAYMENT_MODES.includes(g.paymentMode) ? g.paymentMode : "Other";
+      data[m].room += Number(g.nights || 1) * Number(g.roomRate || g.rate || 0);
+    }
+    for (const o of dayRoomFood) {
+      const m = PAYMENT_MODES.includes(o.paymentMode)
+        ? o.paymentMode
+        : o.paymentMode === "room" || o.paymentMode === "Room"
+          ? "Settle to Room"
+          : "Other";
+      data[m].food += Number(o.total || o.amount || 0);
+    }
+    for (const b of dayRestBills) {
+      const m = PAYMENT_MODES.includes(b.paymentMode)
+        ? b.paymentMode
+        : b.paymentMode === "room" || b.paymentMode === "Room"
+          ? "Settle to Room"
+          : "Other";
+      data[m].rest += Number(b.total || b.amount || 0);
+    }
+    return data;
+  }
+
+  const cashierData = getCashierData();
+
+  function buildPrintHTML() {
+    let html = `<html><head><title>Day-End Closing Summary — ${date}</title><style>
+body{font-family:sans-serif;font-size:11px;margin:20px;}
+h1{color:#b8860b;font-size:18px;margin:0;}
+h2{color:#374151;font-size:13px;margin:12px 0 6px;}
+.header{text-align:center;border-bottom:2px solid #b8860b;padding-bottom:10px;margin-bottom:16px;}
+table{border-collapse:collapse;width:100%;margin-bottom:16px;}
+th,td{border:1px solid #ccc;padding:4px 8px;text-align:left;}
+th{background:#b8860b;color:#fff;font-weight:700;}
+tfoot td{font-weight:bold;background:#fef3c7;}
+.kpi{display:inline-block;border:1px solid #ccc;border-radius:6px;padding:8px 16px;margin:4px;min-width:120px;text-align:center;}
+.kpi-val{font-size:18px;font-weight:700;color:#b8860b;}
+</style></head><body>
+<div class="header"><h1>HOTEL KDM PALACE</h1><div>Day-End Closing Summary — ${date}</div></div>
+<div>
+<div class="kpi"><div>Total Revenue</div><div class="kpi-val">₹${totalRevenue.toFixed(2)}</div></div>
+<div class="kpi"><div>Total GST</div><div class="kpi-val">₹${totalGst.toFixed(2)}</div></div>
+<div class="kpi"><div>Total Guests</div><div class="kpi-val">${totalGuests}</div></div>
+<div class="kpi"><div>Total Bills</div><div class="kpi-val">${totalBills}</div></div>
+</div>
+<h2>1. Food Sale Summary</h2>
+<table><thead><tr><th>Type</th><th>Bills</th><th>Goods Amt</th><th>GST</th><th>Total</th></tr></thead><tbody>
+<tr><td>Restaurant</td><td>${dayRestBills.length}</td><td>₹${(restTotal - restGst).toFixed(2)}</td><td>₹${restGst.toFixed(2)}</td><td>₹${restTotal.toFixed(2)}</td></tr>
+<tr><td>Room Food</td><td>${dayRoomFood.length}</td><td>₹${(foodTotal - foodGst).toFixed(2)}</td><td>₹${foodGst.toFixed(2)}</td><td>₹${foodTotal.toFixed(2)}</td></tr>
+</tbody><tfoot><tr><td>Grand Total</td><td>${dayRestBills.length + dayRoomFood.length}</td><td>₹${(restTotal - restGst + foodTotal - foodGst).toFixed(2)}</td><td>₹${(restGst + foodGst).toFixed(2)}</td><td>₹${(restTotal + foodTotal).toFixed(2)}</td></tr></tfoot></table>
+<h2>2. Guest Bill Summary</h2>
+<table><thead><tr><th>Folio No</th><th>Guest</th><th>Room Bill</th><th>Food Bill</th><th>Rest. Bill</th><th>Total</th><th>Payment Mode</th></tr></thead><tbody>`;
+    for (const g of dayCheckouts.slice(0, 20)) {
+      const nights = Number(g.nights || 1);
+      const roomRate = Number(g.roomRate || g.rate || 0);
+      const roomBill = nights * roomRate;
+      const foodBill = dayRoomFood
+        .filter((o: any) => String(o.roomNumber) === String(g.roomNumber))
+        .reduce((s: number, o: any) => s + Number(o.total || o.amount || 0), 0);
+      const restBill = dayRestBills
+        .filter((b: any) => String(b.settleToRoom) === String(g.roomNumber))
+        .reduce((s: number, b: any) => s + Number(b.total || b.amount || 0), 0);
+      const total = roomBill + foodBill + restBill;
+      html += `<tr><td>${g.folioNo || g.id || "-"}</td><td>${g.name || "-"}</td><td>₹${roomBill.toFixed(2)}</td><td>₹${foodBill.toFixed(2)}</td><td>₹${restBill.toFixed(2)}</td><td>₹${total.toFixed(2)}</td><td>${g.paymentMode || "-"}</td></tr>`;
+    }
+    html += `</tbody></table>
+<h2>3. Cashier Summary</h2>
+<table><thead><tr><th>Payment Mode</th><th>Room Revenue</th><th>Food Revenue</th><th>Restaurant Revenue</th><th>Total</th></tr></thead><tbody>`;
+    for (const m of PAYMENT_MODES) {
+      const d = cashierData[m];
+      const t = d.room + d.food + d.rest;
+      if (t > 0)
+        html += `<tr><td>${m}</td><td>₹${d.room.toFixed(2)}</td><td>₹${d.food.toFixed(2)}</td><td>₹${d.rest.toFixed(2)}</td><td>₹${t.toFixed(2)}</td></tr>`;
+    }
+    html += `</tbody><tfoot><tr><td>Grand Total</td><td>₹${roomTotal.toFixed(2)}</td><td>₹${foodTotal.toFixed(2)}</td><td>₹${restTotal.toFixed(2)}</td><td>₹${totalRevenue.toFixed(2)}</td></tr></tfoot></table>
+</body></html>`;
+    return html;
+  }
+
+  function handlePrintDayEnd() {
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(buildPrintHTML());
+    win.document.close();
+    win.print();
+  }
+
+  function handleExportCSV() {
+    const rows: (string | number)[][] = [
+      ["=== FOOD SALE SUMMARY ==="],
+      ["Type", "Bills", "Goods Amt", "GST", "Total"],
+      [
+        "Restaurant",
+        dayRestBills.length,
+        (restTotal - restGst).toFixed(2),
+        restGst.toFixed(2),
+        restTotal.toFixed(2),
+      ],
+      [
+        "Room Food",
+        dayRoomFood.length,
+        (foodTotal - foodGst).toFixed(2),
+        foodGst.toFixed(2),
+        foodTotal.toFixed(2),
+      ],
+      [
+        "Grand Total",
+        dayRestBills.length + dayRoomFood.length,
+        (restTotal - restGst + foodTotal - foodGst).toFixed(2),
+        (restGst + foodGst).toFixed(2),
+        (restTotal + foodTotal).toFixed(2),
+      ],
+      [],
+      ["=== GUEST BILL SUMMARY ==="],
+      [
+        "Folio No",
+        "Guest",
+        "Room Bill",
+        "Food Bill",
+        "Rest. Bill",
+        "Total",
+        "Payment Mode",
+      ],
+      ...dayCheckouts.slice(0, 20).map((g: any) => {
+        const roomBill =
+          Number(g.nights || 1) * Number(g.roomRate || g.rate || 0);
+        const foodBill = dayRoomFood
+          .filter((o: any) => String(o.roomNumber) === String(g.roomNumber))
+          .reduce(
+            (s: number, o: any) => s + Number(o.total || o.amount || 0),
+            0,
+          );
+        const restBill = dayRestBills
+          .filter((b: any) => String(b.settleToRoom) === String(g.roomNumber))
+          .reduce(
+            (s: number, b: any) => s + Number(b.total || b.amount || 0),
+            0,
+          );
+        return [
+          g.folioNo || g.id || "-",
+          g.name || "-",
+          roomBill.toFixed(2),
+          foodBill.toFixed(2),
+          restBill.toFixed(2),
+          (roomBill + foodBill + restBill).toFixed(2),
+          g.paymentMode || "-",
+        ];
+      }),
+      [],
+      ["=== CASHIER SUMMARY ==="],
+      [
+        "Payment Mode",
+        "Room Revenue",
+        "Food Revenue",
+        "Restaurant Revenue",
+        "Total",
+      ],
+      ...PAYMENT_MODES.map((m) => {
+        const d = cashierData[m];
+        return [
+          m,
+          d.room.toFixed(2),
+          d.food.toFixed(2),
+          d.rest.toFixed(2),
+          (d.room + d.food + d.rest).toFixed(2),
+        ];
+      }),
+      [
+        "Grand Total",
+        roomTotal.toFixed(2),
+        foodTotal.toFixed(2),
+        restTotal.toFixed(2),
+        totalRevenue.toFixed(2),
+      ],
+    ];
+    exportCSV(`day-end-summary-${date}.csv`, [], rows);
+  }
+
+  function handleWhatsAppDayEnd() {
+    const lines = [
+      "🏨 HOTEL KDM PALACE — Day-End Closing Summary",
+      `📅 Date: ${date}`,
+      "",
+      `💰 Total Revenue: ₹${totalRevenue.toFixed(2)}`,
+      `🧾 Total GST: ₹${totalGst.toFixed(2)}`,
+      `👥 Total Guests: ${totalGuests}`,
+      `🧾 Total Bills: ${totalBills}`,
+      "",
+      "📊 Revenue Breakdown:",
+      `  🍽️ Restaurant: ₹${restTotal.toFixed(2)}`,
+      `  🛏️ Room Food: ₹${foodTotal.toFixed(2)}`,
+      `  🏠 Room Revenue: ₹${roomTotal.toFixed(2)}`,
+      "",
+      "💳 Payment Mode Summary:",
+      ...PAYMENT_MODES.filter((m) => {
+        const d = cashierData[m];
+        return d.room + d.food + d.rest > 0;
+      }).map((m) => {
+        const d = cashierData[m];
+        const t = d.room + d.food + d.rest;
+        return `  ${m}: ₹${t.toFixed(2)}`;
+      }),
+    ];
+    const text = encodeURIComponent(lines.join("\n"));
+    window.open(`https://wa.me/?text=${text}`, "_blank");
+  }
+
+  const kpiCards = [
+    {
+      label: "Total Revenue",
+      value: `₹${totalRevenue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+      color: "#b8860b",
+    },
+    {
+      label: "Total GST",
+      value: `₹${totalGst.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
+      color: "#2563eb",
+    },
+    { label: "Total Guests", value: String(totalGuests), color: "#16a34a" },
+    { label: "Total Bills", value: String(totalBills), color: "#7c3aed" },
+  ];
+
+  return (
+    <div style={{ padding: 24 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 16,
+          flexWrap: "wrap",
+          gap: 12,
+        }}
+      >
+        <h2 style={{ color: "#b8860b", fontSize: 20, fontWeight: 700 }}>
+          Day-End Closing Summary
+        </h2>
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            style={{
+              border: "1px solid #d1d5db",
+              borderRadius: 4,
+              padding: "6px 10px",
+              fontSize: 13,
+            }}
+          />
+          <button
+            type="button"
+            onClick={handlePrintDayEnd}
+            style={{
+              background: "#b8860b",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              padding: "8px 18px",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            🖨️ Print Day-End Report
+          </button>
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            style={{
+              background: "#16a34a",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              padding: "8px 18px",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            📥 Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={handleWhatsAppDayEnd}
+            data-ocid="dayend.whatsapp.button"
+            style={{
+              background: "#25d366",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              padding: "8px 18px",
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            📱 WhatsApp
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 16,
+          marginBottom: 24,
+        }}
+      >
+        {kpiCards.map((kpi) => (
+          <div
+            key={kpi.label}
+            style={{
+              background: "#fff",
+              borderRadius: 8,
+              padding: 20,
+              boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+              borderLeft: `4px solid ${kpi.color}`,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 12,
+                color: "#6b7280",
+                fontWeight: 600,
+                marginBottom: 4,
+              }}
+            >
+              {kpi.label}
+            </div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: kpi.color }}>
+              {kpi.value}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Table 1: Food Sale Summary */}
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 8,
+          boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+          marginBottom: 24,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            background: "#b8860b",
+            color: "#fff",
+            padding: "10px 16px",
+            fontWeight: 700,
+            fontSize: 14,
+          }}
+        >
+          1. Food Sale Summary
+        </div>
+        <table
+          style={{ borderCollapse: "collapse", width: "100%", fontSize: 13 }}
+        >
+          <thead>
+            <tr style={{ background: "#fef3c7" }}>
+              {["Type", "Bills", "Goods Amt", "GST", "Total"].map((h) => (
+                <th
+                  key={h}
+                  style={{
+                    padding: "8px 12px",
+                    textAlign: h === "Type" ? "left" : "right",
+                    fontWeight: 700,
+                    color: "#374151",
+                  }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
+              <td style={{ padding: "8px 12px", fontWeight: 600 }}>
+                Restaurant
+              </td>
+              <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                {dayRestBills.length}
+              </td>
+              <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                ₹{(restTotal - restGst).toFixed(2)}
+              </td>
+              <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                ₹{restGst.toFixed(2)}
+              </td>
+              <td
+                style={{
+                  padding: "8px 12px",
+                  textAlign: "right",
+                  fontWeight: 700,
+                }}
+              >
+                ₹{restTotal.toFixed(2)}
+              </td>
+            </tr>
+            <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
+              <td style={{ padding: "8px 12px", fontWeight: 600 }}>
+                Room Food
+              </td>
+              <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                {dayRoomFood.length}
+              </td>
+              <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                ₹{(foodTotal - foodGst).toFixed(2)}
+              </td>
+              <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                ₹{foodGst.toFixed(2)}
+              </td>
+              <td
+                style={{
+                  padding: "8px 12px",
+                  textAlign: "right",
+                  fontWeight: 700,
+                }}
+              >
+                ₹{foodTotal.toFixed(2)}
+              </td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr style={{ background: "#fef3c7", fontWeight: 700 }}>
+              <td style={{ padding: "8px 12px" }}>Grand Total</td>
+              <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                {dayRestBills.length + dayRoomFood.length}
+              </td>
+              <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                ₹{(restTotal - restGst + foodTotal - foodGst).toFixed(2)}
+              </td>
+              <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                ₹{(restGst + foodGst).toFixed(2)}
+              </td>
+              <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                ₹{(restTotal + foodTotal).toFixed(2)}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* Table 2: Guest Bill Summary */}
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 8,
+          boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+          marginBottom: 24,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            background: "#b8860b",
+            color: "#fff",
+            padding: "10px 16px",
+            fontWeight: 700,
+            fontSize: 14,
+          }}
+        >
+          2. Guest Bill Summary
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table
+            style={{
+              borderCollapse: "collapse",
+              width: "100%",
+              fontSize: 12,
+              minWidth: 700,
+            }}
+          >
+            <thead>
+              <tr style={{ background: "#fef3c7" }}>
+                {[
+                  "Folio No",
+                  "Guest",
+                  "Room Bill",
+                  "Food Bill",
+                  "Restaurant Bill",
+                  "Total",
+                  "Payment Mode",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    style={{
+                      padding: "8px 10px",
+                      textAlign:
+                        h === "Folio No" ||
+                        h === "Guest" ||
+                        h === "Payment Mode"
+                          ? "left"
+                          : "right",
+                      fontWeight: 700,
+                      color: "#374151",
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {dayCheckouts.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    style={{
+                      textAlign: "center",
+                      padding: 20,
+                      color: "#6b7280",
+                    }}
+                  >
+                    No checkouts for {date}
+                  </td>
+                </tr>
+              ) : (
+                dayCheckouts.slice(0, 20).map((g: any, i: number) => {
+                  const roomBill =
+                    Number(g.nights || 1) * Number(g.roomRate || g.rate || 0);
+                  const foodBill = dayRoomFood
+                    .filter(
+                      (o: any) => String(o.roomNumber) === String(g.roomNumber),
+                    )
+                    .reduce(
+                      (s: number, o: any) =>
+                        s + Number(o.total || o.amount || 0),
+                      0,
+                    );
+                  const restBill = dayRestBills
+                    .filter(
+                      (b: any) =>
+                        String(b.settleToRoom) === String(g.roomNumber),
+                    )
+                    .reduce(
+                      (s: number, b: any) =>
+                        s + Number(b.total || b.amount || 0),
+                      0,
+                    );
+                  const total = roomBill + foodBill + restBill;
+                  return (
+                    <tr
+                      key={g.id || i}
+                      style={{
+                        background: i % 2 === 0 ? "#f9fafb" : "#fff",
+                        borderBottom: "1px solid #e5e7eb",
+                      }}
+                    >
+                      <td style={{ padding: "6px 10px" }}>
+                        {g.folioNo || g.id || "-"}
+                      </td>
+                      <td style={{ padding: "6px 10px", fontWeight: 600 }}>
+                        {g.name || "-"}
+                      </td>
+                      <td style={{ padding: "6px 10px", textAlign: "right" }}>
+                        ₹{roomBill.toFixed(2)}
+                      </td>
+                      <td style={{ padding: "6px 10px", textAlign: "right" }}>
+                        ₹{foodBill.toFixed(2)}
+                      </td>
+                      <td style={{ padding: "6px 10px", textAlign: "right" }}>
+                        ₹{restBill.toFixed(2)}
+                      </td>
+                      <td
+                        style={{
+                          padding: "6px 10px",
+                          textAlign: "right",
+                          fontWeight: 700,
+                        }}
+                      >
+                        ₹{total.toFixed(2)}
+                      </td>
+                      <td style={{ padding: "6px 10px" }}>
+                        {g.paymentMode || "-"}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Table 3: Cashier Summary */}
+      <div
+        style={{
+          background: "#fff",
+          borderRadius: 8,
+          boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+          marginBottom: 24,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            background: "#b8860b",
+            color: "#fff",
+            padding: "10px 16px",
+            fontWeight: 700,
+            fontSize: 14,
+          }}
+        >
+          3. Cashier Summary by Payment Mode
+        </div>
+        <table
+          style={{ borderCollapse: "collapse", width: "100%", fontSize: 13 }}
+        >
+          <thead>
+            <tr style={{ background: "#fef3c7" }}>
+              {[
+                "Payment Mode",
+                "Room Revenue",
+                "Food Revenue",
+                "Restaurant Revenue",
+                "Total",
+              ].map((h) => (
+                <th
+                  key={h}
+                  style={{
+                    padding: "8px 12px",
+                    textAlign: h === "Payment Mode" ? "left" : "right",
+                    fontWeight: 700,
+                    color: "#374151",
+                  }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {PAYMENT_MODES.map((m, i) => {
+              const d = cashierData[m];
+              const t = d.room + d.food + d.rest;
+              return (
+                <tr
+                  key={m}
+                  style={{
+                    background: i % 2 === 0 ? "#f9fafb" : "#fff",
+                    borderBottom: "1px solid #e5e7eb",
+                  }}
+                >
+                  <td style={{ padding: "8px 12px", fontWeight: 600 }}>{m}</td>
+                  <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                    ₹{d.room.toFixed(2)}
+                  </td>
+                  <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                    ₹{d.food.toFixed(2)}
+                  </td>
+                  <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                    ₹{d.rest.toFixed(2)}
+                  </td>
+                  <td
+                    style={{
+                      padding: "8px 12px",
+                      textAlign: "right",
+                      fontWeight: 700,
+                    }}
+                  >
+                    ₹{t.toFixed(2)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr style={{ background: "#fef3c7", fontWeight: 700 }}>
+              <td style={{ padding: "8px 12px" }}>Grand Total</td>
+              <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                ₹{roomTotal.toFixed(2)}
+              </td>
+              <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                ₹{foodTotal.toFixed(2)}
+              </td>
+              <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                ₹{restTotal.toFixed(2)}
+              </td>
+              <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                ₹{totalRevenue.toFixed(2)}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const {
     authed: isAdmin,
@@ -21051,10 +25636,18 @@ export default function AdminPage() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const handleNavClick = (id: string) => {
-    setActiveSection(id);
+    startTransition(() => {
+      setActiveSection(id);
+    });
     setSidebarOpen(false);
+    setTimeout(
+      () => contentRef.current?.scrollTo({ top: 0, behavior: "smooth" }),
+      100,
+    );
   };
 
   const handleLogin = () => {
@@ -21196,782 +25789,6 @@ export default function AdminPage() {
     );
   }
 
-  function DayEndSummarySection() {
-    const today = new Date().toISOString().split("T")[0];
-    const [date, setDate] = useState(today);
-
-    const restaurantBills: any[] = JSON.parse(
-      localStorage.getItem("hotelRestaurantBills") || "[]",
-    );
-    const roomFoodOrders: any[] = JSON.parse(
-      localStorage.getItem("hotelRoomFoodOrders") || "[]",
-    );
-    const checkIns: any[] = JSON.parse(
-      localStorage.getItem("hotelCheckIns") || "[]",
-    );
-
-    const dayRestBills = restaurantBills.filter((b: any) => {
-      const d = b.date || b.createdAt?.split("T")[0] || "";
-      return d === date;
-    });
-    const dayRoomFood = roomFoodOrders.filter((o: any) => {
-      const d = o.date || o.createdAt?.split("T")[0] || "";
-      return d === date;
-    });
-    const dayCheckouts = checkIns.filter((g: any) => {
-      const d = g.checkOutDate || g.checkOut || "";
-      return d === date;
-    });
-
-    const restTotal = dayRestBills.reduce(
-      (s: number, b: any) => s + Number(b.total || b.amount || 0),
-      0,
-    );
-    const restGst = dayRestBills.reduce(
-      (s: number, b: any) => s + Number(b.gst || b.tax || 0),
-      0,
-    );
-    const foodTotal = dayRoomFood.reduce(
-      (s: number, o: any) => s + Number(o.total || o.amount || 0),
-      0,
-    );
-    const foodGst = Math.round(foodTotal * 0.05 * 100) / 100;
-    const roomTotal = dayCheckouts.reduce(
-      (s: number, g: any) =>
-        s + Number(g.nights || 1) * Number(g.roomRate || g.rate || 0),
-      0,
-    );
-    const roomGst = Math.round(roomTotal * 0.12 * 100) / 100;
-    const totalRevenue = restTotal + foodTotal + roomTotal;
-    const totalGst = restGst + foodGst + roomGst;
-    const totalBills =
-      dayRestBills.length + dayRoomFood.length + dayCheckouts.length;
-    const totalGuests = new Set(dayCheckouts.map((g: any) => g.id || g.name))
-      .size;
-
-    const PAYMENT_MODES = [
-      "Cash",
-      "Card",
-      "UPI",
-      "Online",
-      "Settle to Room",
-      "Other",
-    ];
-
-    function getCashierData() {
-      const data: Record<string, { room: number; food: number; rest: number }> =
-        {};
-      for (const m of PAYMENT_MODES) data[m] = { room: 0, food: 0, rest: 0 };
-      for (const g of dayCheckouts) {
-        const m = PAYMENT_MODES.includes(g.paymentMode)
-          ? g.paymentMode
-          : "Other";
-        data[m].room +=
-          Number(g.nights || 1) * Number(g.roomRate || g.rate || 0);
-      }
-      for (const o of dayRoomFood) {
-        const m = PAYMENT_MODES.includes(o.paymentMode)
-          ? o.paymentMode
-          : o.paymentMode === "room" || o.paymentMode === "Room"
-            ? "Settle to Room"
-            : "Other";
-        data[m].food += Number(o.total || o.amount || 0);
-      }
-      for (const b of dayRestBills) {
-        const m = PAYMENT_MODES.includes(b.paymentMode)
-          ? b.paymentMode
-          : b.paymentMode === "room" || b.paymentMode === "Room"
-            ? "Settle to Room"
-            : "Other";
-        data[m].rest += Number(b.total || b.amount || 0);
-      }
-      return data;
-    }
-
-    const cashierData = getCashierData();
-
-    function buildPrintHTML() {
-      let html = `<html><head><title>Day-End Closing Summary — ${date}</title><style>
-body{font-family:sans-serif;font-size:11px;margin:20px;}
-h1{color:#b8860b;font-size:18px;margin:0;}
-h2{color:#374151;font-size:13px;margin:12px 0 6px;}
-.header{text-align:center;border-bottom:2px solid #b8860b;padding-bottom:10px;margin-bottom:16px;}
-table{border-collapse:collapse;width:100%;margin-bottom:16px;}
-th,td{border:1px solid #ccc;padding:4px 8px;text-align:left;}
-th{background:#b8860b;color:#fff;font-weight:700;}
-tfoot td{font-weight:bold;background:#fef3c7;}
-.kpi{display:inline-block;border:1px solid #ccc;border-radius:6px;padding:8px 16px;margin:4px;min-width:120px;text-align:center;}
-.kpi-val{font-size:18px;font-weight:700;color:#b8860b;}
-</style></head><body>
-<div class="header"><h1>HOTEL KDM PALACE</h1><div>Day-End Closing Summary — ${date}</div></div>
-<div>
-<div class="kpi"><div>Total Revenue</div><div class="kpi-val">₹${totalRevenue.toFixed(2)}</div></div>
-<div class="kpi"><div>Total GST</div><div class="kpi-val">₹${totalGst.toFixed(2)}</div></div>
-<div class="kpi"><div>Total Guests</div><div class="kpi-val">${totalGuests}</div></div>
-<div class="kpi"><div>Total Bills</div><div class="kpi-val">${totalBills}</div></div>
-</div>
-<h2>1. Food Sale Summary</h2>
-<table><thead><tr><th>Type</th><th>Bills</th><th>Goods Amt</th><th>GST</th><th>Total</th></tr></thead><tbody>
-<tr><td>Restaurant</td><td>${dayRestBills.length}</td><td>₹${(restTotal - restGst).toFixed(2)}</td><td>₹${restGst.toFixed(2)}</td><td>₹${restTotal.toFixed(2)}</td></tr>
-<tr><td>Room Food</td><td>${dayRoomFood.length}</td><td>₹${(foodTotal - foodGst).toFixed(2)}</td><td>₹${foodGst.toFixed(2)}</td><td>₹${foodTotal.toFixed(2)}</td></tr>
-</tbody><tfoot><tr><td>Grand Total</td><td>${dayRestBills.length + dayRoomFood.length}</td><td>₹${(restTotal - restGst + foodTotal - foodGst).toFixed(2)}</td><td>₹${(restGst + foodGst).toFixed(2)}</td><td>₹${(restTotal + foodTotal).toFixed(2)}</td></tr></tfoot></table>
-<h2>2. Guest Bill Summary</h2>
-<table><thead><tr><th>Folio No</th><th>Guest</th><th>Room Bill</th><th>Food Bill</th><th>Rest. Bill</th><th>Total</th><th>Payment Mode</th></tr></thead><tbody>`;
-      for (const g of dayCheckouts.slice(0, 20)) {
-        const nights = Number(g.nights || 1);
-        const roomRate = Number(g.roomRate || g.rate || 0);
-        const roomBill = nights * roomRate;
-        const foodBill = dayRoomFood
-          .filter((o: any) => String(o.roomNumber) === String(g.roomNumber))
-          .reduce(
-            (s: number, o: any) => s + Number(o.total || o.amount || 0),
-            0,
-          );
-        const restBill = dayRestBills
-          .filter((b: any) => String(b.settleToRoom) === String(g.roomNumber))
-          .reduce(
-            (s: number, b: any) => s + Number(b.total || b.amount || 0),
-            0,
-          );
-        const total = roomBill + foodBill + restBill;
-        html += `<tr><td>${g.folioNo || g.id || "-"}</td><td>${g.name || "-"}</td><td>₹${roomBill.toFixed(2)}</td><td>₹${foodBill.toFixed(2)}</td><td>₹${restBill.toFixed(2)}</td><td>₹${total.toFixed(2)}</td><td>${g.paymentMode || "-"}</td></tr>`;
-      }
-      html += `</tbody></table>
-<h2>3. Cashier Summary</h2>
-<table><thead><tr><th>Payment Mode</th><th>Room Revenue</th><th>Food Revenue</th><th>Restaurant Revenue</th><th>Total</th></tr></thead><tbody>`;
-      for (const m of PAYMENT_MODES) {
-        const d = cashierData[m];
-        const t = d.room + d.food + d.rest;
-        if (t > 0)
-          html += `<tr><td>${m}</td><td>₹${d.room.toFixed(2)}</td><td>₹${d.food.toFixed(2)}</td><td>₹${d.rest.toFixed(2)}</td><td>₹${t.toFixed(2)}</td></tr>`;
-      }
-      html += `</tbody><tfoot><tr><td>Grand Total</td><td>₹${roomTotal.toFixed(2)}</td><td>₹${foodTotal.toFixed(2)}</td><td>₹${restTotal.toFixed(2)}</td><td>₹${totalRevenue.toFixed(2)}</td></tr></tfoot></table>
-</body></html>`;
-      return html;
-    }
-
-    function handlePrintDayEnd() {
-      const win = window.open("", "_blank");
-      if (!win) return;
-      win.document.write(buildPrintHTML());
-      win.document.close();
-      win.print();
-    }
-
-    function handleExportCSV() {
-      const rows: (string | number)[][] = [
-        ["=== FOOD SALE SUMMARY ==="],
-        ["Type", "Bills", "Goods Amt", "GST", "Total"],
-        [
-          "Restaurant",
-          dayRestBills.length,
-          (restTotal - restGst).toFixed(2),
-          restGst.toFixed(2),
-          restTotal.toFixed(2),
-        ],
-        [
-          "Room Food",
-          dayRoomFood.length,
-          (foodTotal - foodGst).toFixed(2),
-          foodGst.toFixed(2),
-          foodTotal.toFixed(2),
-        ],
-        [
-          "Grand Total",
-          dayRestBills.length + dayRoomFood.length,
-          (restTotal - restGst + foodTotal - foodGst).toFixed(2),
-          (restGst + foodGst).toFixed(2),
-          (restTotal + foodTotal).toFixed(2),
-        ],
-        [],
-        ["=== GUEST BILL SUMMARY ==="],
-        [
-          "Folio No",
-          "Guest",
-          "Room Bill",
-          "Food Bill",
-          "Rest. Bill",
-          "Total",
-          "Payment Mode",
-        ],
-        ...dayCheckouts.slice(0, 20).map((g: any) => {
-          const roomBill =
-            Number(g.nights || 1) * Number(g.roomRate || g.rate || 0);
-          const foodBill = dayRoomFood
-            .filter((o: any) => String(o.roomNumber) === String(g.roomNumber))
-            .reduce(
-              (s: number, o: any) => s + Number(o.total || o.amount || 0),
-              0,
-            );
-          const restBill = dayRestBills
-            .filter((b: any) => String(b.settleToRoom) === String(g.roomNumber))
-            .reduce(
-              (s: number, b: any) => s + Number(b.total || b.amount || 0),
-              0,
-            );
-          return [
-            g.folioNo || g.id || "-",
-            g.name || "-",
-            roomBill.toFixed(2),
-            foodBill.toFixed(2),
-            restBill.toFixed(2),
-            (roomBill + foodBill + restBill).toFixed(2),
-            g.paymentMode || "-",
-          ];
-        }),
-        [],
-        ["=== CASHIER SUMMARY ==="],
-        [
-          "Payment Mode",
-          "Room Revenue",
-          "Food Revenue",
-          "Restaurant Revenue",
-          "Total",
-        ],
-        ...PAYMENT_MODES.map((m) => {
-          const d = cashierData[m];
-          return [
-            m,
-            d.room.toFixed(2),
-            d.food.toFixed(2),
-            d.rest.toFixed(2),
-            (d.room + d.food + d.rest).toFixed(2),
-          ];
-        }),
-        [
-          "Grand Total",
-          roomTotal.toFixed(2),
-          foodTotal.toFixed(2),
-          restTotal.toFixed(2),
-          totalRevenue.toFixed(2),
-        ],
-      ];
-      exportCSV(`day-end-summary-${date}.csv`, [], rows);
-    }
-
-    function handleWhatsAppDayEnd() {
-      const lines = [
-        "🏨 HOTEL KDM PALACE — Day-End Closing Summary",
-        `📅 Date: ${date}`,
-        "",
-        `💰 Total Revenue: ₹${totalRevenue.toFixed(2)}`,
-        `🧾 Total GST: ₹${totalGst.toFixed(2)}`,
-        `👥 Total Guests: ${totalGuests}`,
-        `🧾 Total Bills: ${totalBills}`,
-        "",
-        "📊 Revenue Breakdown:",
-        `  🍽️ Restaurant: ₹${restTotal.toFixed(2)}`,
-        `  🛏️ Room Food: ₹${foodTotal.toFixed(2)}`,
-        `  🏠 Room Revenue: ₹${roomTotal.toFixed(2)}`,
-        "",
-        "💳 Payment Mode Summary:",
-        ...PAYMENT_MODES.filter((m) => {
-          const d = cashierData[m];
-          return d.room + d.food + d.rest > 0;
-        }).map((m) => {
-          const d = cashierData[m];
-          const t = d.room + d.food + d.rest;
-          return `  ${m}: ₹${t.toFixed(2)}`;
-        }),
-      ];
-      const text = encodeURIComponent(lines.join("\n"));
-      window.open(`https://wa.me/?text=${text}`, "_blank");
-    }
-
-    const kpiCards = [
-      {
-        label: "Total Revenue",
-        value: `₹${totalRevenue.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-        color: "#b8860b",
-      },
-      {
-        label: "Total GST",
-        value: `₹${totalGst.toLocaleString("en-IN", { minimumFractionDigits: 2 })}`,
-        color: "#2563eb",
-      },
-      { label: "Total Guests", value: String(totalGuests), color: "#16a34a" },
-      { label: "Total Bills", value: String(totalBills), color: "#7c3aed" },
-    ];
-
-    return (
-      <div style={{ padding: 24 }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 16,
-            flexWrap: "wrap",
-            gap: 12,
-          }}
-        >
-          <h2 style={{ color: "#b8860b", fontSize: 20, fontWeight: 700 }}>
-            Day-End Closing Summary
-          </h2>
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              flexWrap: "wrap",
-              alignItems: "center",
-            }}
-          >
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              style={{
-                border: "1px solid #d1d5db",
-                borderRadius: 4,
-                padding: "6px 10px",
-                fontSize: 13,
-              }}
-            />
-            <button
-              type="button"
-              onClick={handlePrintDayEnd}
-              style={{
-                background: "#b8860b",
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                padding: "8px 18px",
-                cursor: "pointer",
-                fontWeight: 700,
-              }}
-            >
-              🖨️ Print Day-End Report
-            </button>
-            <button
-              type="button"
-              onClick={handleExportCSV}
-              style={{
-                background: "#16a34a",
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                padding: "8px 18px",
-                cursor: "pointer",
-                fontWeight: 700,
-              }}
-            >
-              📥 Export CSV
-            </button>
-            <button
-              type="button"
-              onClick={handleWhatsAppDayEnd}
-              data-ocid="dayend.whatsapp.button"
-              style={{
-                background: "#25d366",
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                padding: "8px 18px",
-                cursor: "pointer",
-                fontWeight: 700,
-              }}
-            >
-              📱 WhatsApp
-            </button>
-          </div>
-        </div>
-
-        {/* KPI Cards */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            gap: 16,
-            marginBottom: 24,
-          }}
-        >
-          {kpiCards.map((kpi) => (
-            <div
-              key={kpi.label}
-              style={{
-                background: "#fff",
-                borderRadius: 8,
-                padding: 20,
-                boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-                borderLeft: `4px solid ${kpi.color}`,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 12,
-                  color: "#6b7280",
-                  fontWeight: 600,
-                  marginBottom: 4,
-                }}
-              >
-                {kpi.label}
-              </div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: kpi.color }}>
-                {kpi.value}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Table 1: Food Sale Summary */}
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 8,
-            boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-            marginBottom: 24,
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              background: "#b8860b",
-              color: "#fff",
-              padding: "10px 16px",
-              fontWeight: 700,
-              fontSize: 14,
-            }}
-          >
-            1. Food Sale Summary
-          </div>
-          <table
-            style={{ borderCollapse: "collapse", width: "100%", fontSize: 13 }}
-          >
-            <thead>
-              <tr style={{ background: "#fef3c7" }}>
-                {["Type", "Bills", "Goods Amt", "GST", "Total"].map((h) => (
-                  <th
-                    key={h}
-                    style={{
-                      padding: "8px 12px",
-                      textAlign: h === "Type" ? "left" : "right",
-                      fontWeight: 700,
-                      color: "#374151",
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
-                <td style={{ padding: "8px 12px", fontWeight: 600 }}>
-                  Restaurant
-                </td>
-                <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                  {dayRestBills.length}
-                </td>
-                <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                  ₹{(restTotal - restGst).toFixed(2)}
-                </td>
-                <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                  ₹{restGst.toFixed(2)}
-                </td>
-                <td
-                  style={{
-                    padding: "8px 12px",
-                    textAlign: "right",
-                    fontWeight: 700,
-                  }}
-                >
-                  ₹{restTotal.toFixed(2)}
-                </td>
-              </tr>
-              <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
-                <td style={{ padding: "8px 12px", fontWeight: 600 }}>
-                  Room Food
-                </td>
-                <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                  {dayRoomFood.length}
-                </td>
-                <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                  ₹{(foodTotal - foodGst).toFixed(2)}
-                </td>
-                <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                  ₹{foodGst.toFixed(2)}
-                </td>
-                <td
-                  style={{
-                    padding: "8px 12px",
-                    textAlign: "right",
-                    fontWeight: 700,
-                  }}
-                >
-                  ₹{foodTotal.toFixed(2)}
-                </td>
-              </tr>
-            </tbody>
-            <tfoot>
-              <tr style={{ background: "#fef3c7", fontWeight: 700 }}>
-                <td style={{ padding: "8px 12px" }}>Grand Total</td>
-                <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                  {dayRestBills.length + dayRoomFood.length}
-                </td>
-                <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                  ₹{(restTotal - restGst + foodTotal - foodGst).toFixed(2)}
-                </td>
-                <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                  ₹{(restGst + foodGst).toFixed(2)}
-                </td>
-                <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                  ₹{(restTotal + foodTotal).toFixed(2)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-
-        {/* Table 2: Guest Bill Summary */}
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 8,
-            boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-            marginBottom: 24,
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              background: "#b8860b",
-              color: "#fff",
-              padding: "10px 16px",
-              fontWeight: 700,
-              fontSize: 14,
-            }}
-          >
-            2. Guest Bill Summary
-          </div>
-          <div style={{ overflowX: "auto" }}>
-            <table
-              style={{
-                borderCollapse: "collapse",
-                width: "100%",
-                fontSize: 12,
-                minWidth: 700,
-              }}
-            >
-              <thead>
-                <tr style={{ background: "#fef3c7" }}>
-                  {[
-                    "Folio No",
-                    "Guest",
-                    "Room Bill",
-                    "Food Bill",
-                    "Restaurant Bill",
-                    "Total",
-                    "Payment Mode",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      style={{
-                        padding: "8px 10px",
-                        textAlign:
-                          h === "Folio No" ||
-                          h === "Guest" ||
-                          h === "Payment Mode"
-                            ? "left"
-                            : "right",
-                        fontWeight: 700,
-                        color: "#374151",
-                      }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {dayCheckouts.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={7}
-                      style={{
-                        textAlign: "center",
-                        padding: 20,
-                        color: "#6b7280",
-                      }}
-                    >
-                      No checkouts for {date}
-                    </td>
-                  </tr>
-                ) : (
-                  dayCheckouts.slice(0, 20).map((g: any, i: number) => {
-                    const roomBill =
-                      Number(g.nights || 1) * Number(g.roomRate || g.rate || 0);
-                    const foodBill = dayRoomFood
-                      .filter(
-                        (o: any) =>
-                          String(o.roomNumber) === String(g.roomNumber),
-                      )
-                      .reduce(
-                        (s: number, o: any) =>
-                          s + Number(o.total || o.amount || 0),
-                        0,
-                      );
-                    const restBill = dayRestBills
-                      .filter(
-                        (b: any) =>
-                          String(b.settleToRoom) === String(g.roomNumber),
-                      )
-                      .reduce(
-                        (s: number, b: any) =>
-                          s + Number(b.total || b.amount || 0),
-                        0,
-                      );
-                    const total = roomBill + foodBill + restBill;
-                    return (
-                      <tr
-                        key={g.id || i}
-                        style={{
-                          background: i % 2 === 0 ? "#f9fafb" : "#fff",
-                          borderBottom: "1px solid #e5e7eb",
-                        }}
-                      >
-                        <td style={{ padding: "6px 10px" }}>
-                          {g.folioNo || g.id || "-"}
-                        </td>
-                        <td style={{ padding: "6px 10px", fontWeight: 600 }}>
-                          {g.name || "-"}
-                        </td>
-                        <td style={{ padding: "6px 10px", textAlign: "right" }}>
-                          ₹{roomBill.toFixed(2)}
-                        </td>
-                        <td style={{ padding: "6px 10px", textAlign: "right" }}>
-                          ₹{foodBill.toFixed(2)}
-                        </td>
-                        <td style={{ padding: "6px 10px", textAlign: "right" }}>
-                          ₹{restBill.toFixed(2)}
-                        </td>
-                        <td
-                          style={{
-                            padding: "6px 10px",
-                            textAlign: "right",
-                            fontWeight: 700,
-                          }}
-                        >
-                          ₹{total.toFixed(2)}
-                        </td>
-                        <td style={{ padding: "6px 10px" }}>
-                          {g.paymentMode || "-"}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Table 3: Cashier Summary */}
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 8,
-            boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-            marginBottom: 24,
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              background: "#b8860b",
-              color: "#fff",
-              padding: "10px 16px",
-              fontWeight: 700,
-              fontSize: 14,
-            }}
-          >
-            3. Cashier Summary by Payment Mode
-          </div>
-          <table
-            style={{ borderCollapse: "collapse", width: "100%", fontSize: 13 }}
-          >
-            <thead>
-              <tr style={{ background: "#fef3c7" }}>
-                {[
-                  "Payment Mode",
-                  "Room Revenue",
-                  "Food Revenue",
-                  "Restaurant Revenue",
-                  "Total",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    style={{
-                      padding: "8px 12px",
-                      textAlign: h === "Payment Mode" ? "left" : "right",
-                      fontWeight: 700,
-                      color: "#374151",
-                    }}
-                  >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {PAYMENT_MODES.map((m, i) => {
-                const d = cashierData[m];
-                const t = d.room + d.food + d.rest;
-                return (
-                  <tr
-                    key={m}
-                    style={{
-                      background: i % 2 === 0 ? "#f9fafb" : "#fff",
-                      borderBottom: "1px solid #e5e7eb",
-                    }}
-                  >
-                    <td style={{ padding: "8px 12px", fontWeight: 600 }}>
-                      {m}
-                    </td>
-                    <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                      ₹{d.room.toFixed(2)}
-                    </td>
-                    <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                      ₹{d.food.toFixed(2)}
-                    </td>
-                    <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                      ₹{d.rest.toFixed(2)}
-                    </td>
-                    <td
-                      style={{
-                        padding: "8px 12px",
-                        textAlign: "right",
-                        fontWeight: 700,
-                      }}
-                    >
-                      ₹{t.toFixed(2)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot>
-              <tr style={{ background: "#fef3c7", fontWeight: 700 }}>
-                <td style={{ padding: "8px 12px" }}>Grand Total</td>
-                <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                  ₹{roomTotal.toFixed(2)}
-                </td>
-                <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                  ₹{foodTotal.toFixed(2)}
-                </td>
-                <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                  ₹{restTotal.toFixed(2)}
-                </td>
-                <td style={{ padding: "8px 12px", textAlign: "right" }}>
-                  ₹{totalRevenue.toFixed(2)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-      </div>
-    );
-  }
-
   const renderSection = () => {
     switch (activeSection) {
       case "dashboard":
@@ -22075,6 +25892,24 @@ tfoot td{font-weight:bold;background:#fef3c7;}
         );
       case "image-manager":
         return <ImageManagerSection />;
+      case "dynamic-pricing":
+        return <DynamicPricingSection />;
+      case "rate-calendar":
+        return <RateCalendarSection />;
+      case "ota-rates":
+        return <OTARateSyncSection />;
+      case "inventory":
+        return <InventoryStockSection />;
+      case "expense-tracker":
+        return <ExpenseTrackerSection />;
+      case "maintenance":
+        return <MaintenanceRequestsSection />;
+      case "leads":
+        return <LeadsManagementSection />;
+      case "loyalty-program":
+        return <LoyaltyProgramSection />;
+      case "reviews-reputation":
+        return <ReviewsReputationSection />;
       default:
         return <DashboardSection inquiries={inquiries} />;
     }
@@ -22257,8 +26092,8 @@ tfoot td{font-weight:bold;background:#fef3c7;}
         {/* Top bar */}
         <div
           style={{
-            background: CARD_BG,
-            borderBottom: `1px solid ${BORDER}`,
+            background: "linear-gradient(135deg, #1e3a5f, #1e40af)",
+            borderBottom: "none",
             padding: "12px 24px",
             display: "flex",
             alignItems: "center",
@@ -22283,12 +26118,16 @@ tfoot td{font-weight:bold;background:#fef3c7;}
             {sidebarOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
           <div style={{ flex: 1 }}>
-            <p style={{ color: GOLD, fontWeight: 600, fontSize: "0.95rem" }}>
+            <p style={{ color: "white", fontWeight: 600, fontSize: "0.95rem" }}>
               {NAV_ITEMS.find((n) => n.id === activeSection)?.label ??
                 "Dashboard"}
             </p>
             <p
-              style={{ color: "#1e293b", fontWeight: 600, fontSize: "0.7rem" }}
+              style={{
+                color: "rgba(255,255,255,0.7)",
+                fontWeight: 500,
+                fontSize: "0.7rem",
+              }}
             >
               Hotel KDM Palace Admin Panel
             </p>
@@ -22296,10 +26135,13 @@ tfoot td{font-weight:bold;background:#fef3c7;}
           <a
             href="/"
             style={{
-              color: "#1e293b",
+              color: "rgba(255,255,255,0.85)",
               fontWeight: 600,
               fontSize: "0.75rem",
               textDecoration: "none",
+              background: "rgba(255,255,255,0.1)",
+              padding: "5px 12px",
+              borderRadius: 6,
             }}
             data-ocid="admin.back.link"
           >
@@ -22309,15 +26151,43 @@ tfoot td{font-weight:bold;background:#fef3c7;}
 
         {/* Content */}
         <div
+          ref={contentRef}
           style={{
             flex: 1,
             padding: "24px 20px",
             overflowY: "auto",
             overflowX: "hidden",
             minWidth: 0,
+            position: "relative",
           }}
         >
-          {renderSection()}
+          {isPending && (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "rgba(15,23,42,0.55)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 10,
+              }}
+            >
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  border: "3px solid #c9a84c",
+                  borderTopColor: "transparent",
+                  borderRadius: "50%",
+                  animation: "spin 0.7s linear infinite",
+                }}
+              />
+            </div>
+          )}
+          <SectionErrorBoundary key={activeSection}>
+            {renderSection()}
+          </SectionErrorBoundary>
         </div>
       </main>
     </div>
@@ -22393,7 +26263,7 @@ function SidebarContent({
         </div>
         <div
           style={{
-            color: "#1e293b",
+            color: "rgba(255,255,255,0.6)",
             fontWeight: 600,
             fontSize: "0.7rem",
             marginTop: 2,
@@ -22470,12 +26340,12 @@ function SidebarContent({
                         gap: 10,
                         padding: "9px 18px",
                         background: active
-                          ? "rgba(201,168,76,0.12)"
+                          ? "linear-gradient(90deg, #f59e0b, #f97316)"
                           : "transparent",
                         borderLeft: active
-                          ? `3px solid ${GOLD}`
+                          ? "3px solid transparent"
                           : "3px solid transparent",
-                        color: active ? GOLD : "#888",
+                        color: active ? "white" : "rgba(255,255,255,0.65)",
                         fontSize: "0.8rem",
                         cursor: "pointer",
                         border: "none",
@@ -22499,7 +26369,11 @@ function SidebarContent({
         {session && (
           <div style={{ marginBottom: 10, padding: "8px 6px" }}>
             <div
-              style={{ color: "#94a3b8", fontSize: "0.7rem", marginBottom: 2 }}
+              style={{
+                color: "rgba(255,255,255,0.5)",
+                fontSize: "0.7rem",
+                marginBottom: 2,
+              }}
             >
               Logged in as
             </div>
